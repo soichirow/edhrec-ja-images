@@ -1,0 +1,9 @@
+{
+  "name": "edhrec-ja-images",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Userscript that shows Japanese-print card images on EDHREC.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
