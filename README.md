@@ -122,7 +122,8 @@ Scryfallに日本語印刷版がないカード、または通常アート寄り
 ├── userscript/
 │   └── edhrec-ja-images.user.js
 ├── tests/
-│   └── edhrec-ja-images.test.js
+│   ├── edhrec-ja-images.test.js
+│   └── e2e-layout.test.js
 ├── fixtures/
 │   └── layout-test.html
 ├── docs/
@@ -144,6 +145,20 @@ Run tests:
 ```powershell
 npm test
 ```
+
+Run only unit/spec tests:
+
+```powershell
+npm run test:unit
+```
+
+Run only the real-browser layout E2E test:
+
+```powershell
+npm run test:e2e
+```
+
+The E2E test launches a local static server and a Chromium-family browser through the DevTools Protocol. If Edge or Chrome is installed in a non-standard path, set `E2E_BROWSER_PATH`.
 
 Syntax check:
 
@@ -187,13 +202,11 @@ gh repo create soichirow/edhrec-ja-images --public --source . --remote origin --
 
 ## Note Article
 
-公開用のNote記事ドラフトは次にあります。
+公開用のNote記事は次にあります。Greasy Fork、GitHub、GitHub RawのURLは反映済みです。
 
 ```text
 docs/note-edhrec-japanese-card-image-replacer.md
 ```
-
-Greasy Fork公開後、記事内の `[ここにGreasy ForkのURLを入れる]` を実際のURLに差し替えてください。
 
 ## License
 

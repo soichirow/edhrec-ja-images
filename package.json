@@ -9,6 +9,8 @@
     "url": "https://github.com/soichirow/edhrec-ja-images.git"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:unit": "node --test tests/edhrec-ja-images.test.js",
+    "test:e2e": "node --test tests/e2e-layout.test.js"
   }
 }
