@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-02.11
+// @version      2026-06-02.12
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -18,7 +18,7 @@
 (function () {
   "use strict";
 
-  const CACHE_KEY = "edhrec-ja-image-cache-v1";
+  const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
@@ -27,6 +27,7 @@
   const MAX_PREFETCH_PER_SCAN = 80;
   const MAX_IMAGE_PRELOAD_PER_SCAN = 40;
   const MAX_CACHE_ENTRIES = 800;
+  const MAX_API_RETRIES = 2;
   const API_HEADERS = { Accept: "application/json;q=0.9,*/*;q=0.8" };
   const imageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
   const linkSelector = 'a[href*="/cards/"], a[href*="/commanders/"]';
@@ -74,6 +75,12 @@
     return normalizeName(img.getAttribute("alt") || img.getAttribute("title")) || (link ? nameOfLink(link) : "");
   }
 
+  function scryfallIdOfImage(img) {
+    const src = img ? img.currentSrc || img.src || img.getAttribute("data-src") || "" : "";
+    const match = String(src).match(/cards\.scryfall\.io\/(?:small|normal|large|png)\/(?:front|back)\/[0-9a-f]\/[0-9a-f]\/([0-9a-f-]{36})/i);
+    return match ? match[1] : "";
+  }
+
   function cardImage(card) {
     let uris = card && card.image_uris;
     if (!uris && card && card.card_faces && card.card_faces[0]) {
@@ -115,16 +122,10 @@
     const key = name.toLowerCase();
     if (fresh(key)) return Promise.resolve(cache[key].value);
     if (pending[key]) return pending[key];
-    pending[key] = throttled(function () {
-      const query = '!"' + name.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '" lang:ja';
-      const url = "https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=" + encodeURIComponent(query);
-      return apiJson(url).then(function (body) {
-        const list = body && body.data ? body.data : [];
-        const found = list.find(function (card) {
-          return card.lang === "ja" && cardImage(card) && isRegularArt(card);
-        });
-        return remember(key, found ? { src: cardImage(found), label: stripReading(found.printed_name || found.name || name), scryfall: found.scryfall_uri || "" } : null);
-      });
+    pending[key] = searchRegularPrint(name, "ja").then(function (found) {
+      return found || searchRegularPrint(name, "en");
+    }).then(function (found) {
+      return remember(key, found ? hitFromCard(found, name) : null);
     }).catch(function () {
       return null;
     }).finally(function () {
@@ -133,15 +134,93 @@
     return pending[key];
   }
 
+  function getByScryfallId(id) {
+    const key = "id:" + String(id || "").toLowerCase();
+    if (!id) return Promise.resolve(null);
+    if (fresh(key)) return Promise.resolve(cache[key].value);
+    if (pending[key]) return pending[key];
+    pending[key] = throttledApiJson("https://api.scryfall.com/cards/" + encodeURIComponent(id)).then(function (card) {
+      if (!card || !card.name) return null;
+      return getJapanese(card.name).then(function (hit) {
+        return hit || hitFromCard(card, card.name);
+      });
+    }).then(function (hit) {
+      return remember(key, hit);
+    }).catch(function () {
+      return null;
+    }).finally(function () {
+      delete pending[key];
+    });
+    return pending[key];
+  }
+
+  function hitFromCard(card, fallbackName) {
+    return {
+      src: cardImage(card),
+      label: stripReading(card.printed_name || card.name || fallbackName),
+      scryfall: card.scryfall_uri || "",
+      english: card.name || fallbackName,
+    };
+  }
+
+  function searchRegularPrint(name, lang) {
+    return throttledApiJson(scryfallSearchUrl(name, lang)).then(function (body) {
+      const list = body && body.data ? body.data : [];
+      return list.find(function (card) {
+        return card.lang === lang && cardImage(card) && isRegularArt(card);
+      }) || null;
+    });
+  }
+
+  function scryfallSearchUrl(name, lang) {
+    const query = '!"' + name.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '" lang:' + lang;
+    return "https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=" + encodeURIComponent(query);
+  }
+
   function apiJson(url) {
     return fetch(url, { headers: API_HEADERS }).then(function (res) {
       if (res.status === 404) return null;
       if (res.status === 429) {
-        last = Date.now() + retryAfterMs(res);
-        throw new Error("Scryfall HTTP 429");
+        const error = new Error("Scryfall HTTP 429");
+        error.status = 429;
+        error.retryAfterMs = retryAfterMs(res);
+        last = Date.now() + error.retryAfterMs;
+        throw error;
       }
-      if (!res.ok) throw new Error("Scryfall HTTP " + res.status);
+      if (!res.ok) {
+        const error = new Error("Scryfall HTTP " + res.status);
+        error.status = res.status;
+        throw error;
+      }
       return res.json();
+    });
+  }
+
+  function throttledApiJson(url, attempt) {
+    attempt = attempt || 0;
+    return throttled(function () {
+      return apiJson(url);
+    }).catch(function (error) {
+      if (attempt >= MAX_API_RETRIES || !retryableApiError(error)) throw error;
+      return delay(apiRetryDelay(error, attempt)).then(function () {
+        return throttledApiJson(url, attempt + 1);
+      });
+    });
+  }
+
+  function retryableApiError(error) {
+    if (!error || !error.status) return true;
+    return error.status === 429 || error.status >= 500;
+  }
+
+  function apiRetryDelay(error, attempt) {
+    if (error && error.retryAfterMs) return error.retryAfterMs;
+    return 1500 * Math.pow(2, attempt);
+  }
+
+  function delay(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
     });
   }
 
@@ -204,22 +283,24 @@
     const src = img.currentSrc || img.src || img.getAttribute("data-src") || "";
     if (!link && !/scryfall/i.test(src)) return;
     const name = nameOfImage(img);
-    if (!name) return;
+    const scryfallId = scryfallIdOfImage(img);
+    if (!name && !scryfallId) return;
     img.dataset.edhrecJaState = "pending";
-    getJapanese(name).then(function (hit) {
+    (name ? getJapanese(name) : getByScryfallId(scryfallId)).then(function (hit) {
       if (!hit) {
         img.dataset.edhrecJaState = "missing";
         return;
       }
+      const englishName = hit.english || name || hit.label;
       preloadImage(hit.src);
       img.src = hit.src;
       img.removeAttribute("srcset");
       img.setAttribute("data-src", hit.src);
       img.setAttribute("data-lazy-src", hit.src);
       img.alt = hit.label;
-      img.title = name + " / " + hit.label;
+      img.title = englishName + " / " + hit.label;
       img.dataset.edhrecJaState = "replaced";
-      showScryfallLink(img, name, hit);
+      showScryfallLink(img, englishName, hit);
     });
   }
 
@@ -259,7 +340,7 @@
   }
 
   function showScryfallLink(img, englishName, hit) {
-    const host = (img.closest && img.closest(linkSelector)) || img;
+    const host = img.closest && img.closest(linkSelector);
     if (!host || !hit.scryfall) return;
     ensureFavoriteDock();
     injectStyles();
@@ -321,7 +402,6 @@
       actionRow.appendChild(favorite);
       box.appendChild(actionRow);
       box.appendChild(shopRow);
-      host.appendChild(box);
     } else {
       actionRow = box.querySelector(".edhrec-ja-action-row");
       shopRow = box.querySelector(".edhrec-ja-shop-row");
@@ -348,7 +428,7 @@
     box.dataset.imageSrc = hit.src;
     label.textContent = hit.label;
     renderShopLinks(shopRow, englishName, hit.label);
-    positionOverlayBox(box, host, img);
+    insertControlBox(host, img, box);
     updateFavoriteButton(favorite, englishName);
   }
 
@@ -363,12 +443,11 @@
     host.style.overflow = host.style.overflow || "hidden";
   }
 
-  function positionOverlayBox(box, host, img) {
-    if (!box || !host || !img || !host.getBoundingClientRect || !img.getBoundingClientRect) return;
-    const hostRect = host.getBoundingClientRect();
-    const imageRect = img.getBoundingClientRect();
-    const lowerContent = Math.max(0, Math.round(hostRect.bottom - imageRect.bottom));
-    box.style.bottom = Math.max(6, lowerContent + 6) + "px";
+  function insertControlBox(host, img, box) {
+    if (!host || !img || !box || host === img) return;
+    const reference = img.nextSibling;
+    if (reference === box) return;
+    host.insertBefore(box, reference);
   }
 
   function fallbackCopyText(value) {
@@ -589,16 +668,16 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      ".edhrec-ja-overlay{position:absolute;left:6px;right:6px;bottom:6px;z-index:20;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;max-width:calc(100% - 12px);padding:5px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:linear-gradient(135deg,rgba(15,23,42,.92),rgba(30,41,59,.82));color:#fff;font-size:11px;line-height:1.2;box-shadow:0 10px 28px rgba(0,0,0,.34);backdrop-filter:blur(10px);pointer-events:auto;}",
+      ".edhrec-ja-overlay{display:flex;flex-direction:column;gap:4px;box-sizing:border-box;width:100%;margin:0;padding:6px 7px;border-top:1px solid rgba(148,163,184,.28);border-bottom:1px solid rgba(15,23,42,.08);background:linear-gradient(135deg,rgba(248,250,252,.98),rgba(226,232,240,.96));color:#0f172a;font-size:11px;line-height:1.2;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);pointer-events:auto;}",
       ".edhrec-ja-action-row{display:flex;align-items:center;gap:5px;width:100%;min-width:0;}",
       ".edhrec-ja-shop-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;width:100%;}",
-      ".edhrec-ja-shop-link{display:block;min-width:0;overflow:hidden;padding:3px 0;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(255,255,255,.1);color:#e0f2fe;text-align:center;text-decoration:none;font-size:10px;font-weight:800;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}",
-      ".edhrec-ja-shop-link:hover{background:rgba(14,165,233,.24);border-color:rgba(125,211,252,.55);color:#fff;}",
-      ".edhrec-ja-name-button{min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:3px 7px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.1);color:#fff;text-align:left;text-decoration:none;font:inherit;font-weight:700;line-height:1.25;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}",
-      ".edhrec-ja-name-button:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.28);}",
+      ".edhrec-ja-shop-link{display:block;min-width:0;overflow:hidden;padding:3px 0;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#0369a1;text-align:center;text-decoration:none;font-size:10px;font-weight:800;line-height:1.1;box-shadow:0 1px 2px rgba(15,23,42,.08);}",
+      ".edhrec-ja-shop-link:hover{background:#e0f2fe;border-color:#7dd3fc;color:#075985;}",
+      ".edhrec-ja-name-button{min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:3px 7px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#0f172a;text-align:left;text-decoration:none;font:inherit;font-weight:700;line-height:1.25;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08);}",
+      ".edhrec-ja-name-button:hover{background:#eff6ff;border-color:#93c5fd;}",
       ".edhrec-ja-name-button,.edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-shop-link,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}",
-      ".edhrec-ja-chip-button{flex:0 0 auto;padding:3px 8px;border:1px solid rgba(255,255,255,.56);border-radius:999px;background:rgba(255,255,255,.94);color:#1e293b;font-size:11px;font-weight:650;line-height:1.25;box-shadow:0 2px 8px rgba(0,0,0,.18);cursor:pointer;}",
-      ".edhrec-ja-star-button{flex:0 0 auto;min-width:25px;height:22px;padding:0 6px;border:1px solid rgba(251,191,36,.72);border-radius:999px;background:rgba(255,251,235,.96);color:#92400e;font-size:13px;font-weight:800;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.18);cursor:pointer;}",
+      ".edhrec-ja-chip-button{flex:0 0 auto;padding:3px 8px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#1e293b;font-size:11px;font-weight:650;line-height:1.25;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}",
+      ".edhrec-ja-star-button{flex:0 0 auto;min-width:25px;height:22px;padding:0 6px;border:1px solid #fbbf24;border-radius:999px;background:#fffbeb;color:#92400e;font-size:13px;font-weight:800;line-height:1;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}",
       ".edhrec-ja-star-button.is-active{background:linear-gradient(135deg,#f59e0b,#facc15);border-color:#fde68a;color:#451a03;}",
       ".edhrec-ja-name-button:hover,.edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-shop-link:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.18);}",
       ".edhrec-ja-dock{position:fixed;right:14px;bottom:14px;z-index:2147483647;font-family:system-ui,sans-serif;}",

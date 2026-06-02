@@ -42,6 +42,10 @@ test("userscript keeps persistent cache and rate limit safeguards", () => {
   assert.match(source, /localStorage\.setItem\(CACHE_KEY/);
   assert.match(source, /const REQUEST_GAP = 110/);
   assert.match(source, /const RETRY_AFTER_FALLBACK = 10000/);
+  assert.match(source, /const MAX_API_RETRIES = 2/);
+  assert.match(source, /function throttledApiJson/);
+  assert.match(source, /function retryableApiError/);
+  assert.match(source, /function apiRetryDelay/);
   assert.match(source, /res\.status === 429/);
   assert.match(source, /function retryAfterMs/);
   assert.match(source, /headers\.get\("Retry-After"\)/);
@@ -60,6 +64,20 @@ test("userscript prefetches card links and renders Japanese Scryfall links", () 
   assert.match(source, /MAX_PREFETCH_PER_SCAN/);
   assert.match(source, /showScryfallLink/);
   assert.match(source, /hit\.scryfall/);
+});
+
+test("userscript falls back to English Scryfall cards when Japanese prints are missing", () => {
+  assert.match(source, /searchRegularPrint\(name, "ja"\)/);
+  assert.match(source, /searchRegularPrint\(name, "en"\)/);
+  assert.match(source, /function hitFromCard/);
+  assert.match(source, /CACHE_KEY = "edhrec-ja-image-cache-v2"/);
+});
+
+test("userscript can resolve unlinked commander images from Scryfall image IDs", () => {
+  assert.match(source, /function scryfallIdOfImage/);
+  assert.match(source, /function getByScryfallId/);
+  assert.match(source, /api\.scryfall\.com\/cards\//);
+  assert.match(source, /name \? getJapanese\(name\) : getByScryfallId\(scryfallId\)/);
 });
 
 test("userscript preloads Japanese image URLs while leaving original images visible", () => {
@@ -83,12 +101,12 @@ test("userscript renders store search links without embedded affiliate parameter
   assert.doesNotMatch(source, /utm_|affiliate|ambassador|afid|a_id/i);
 });
 
-test("userscript renders controls as overlay without changing card flow", () => {
+test("userscript renders controls below the card image for readability", () => {
   assert.match(source, /function prepareOverlayHost/);
-  assert.match(source, /function positionOverlayBox/);
-  assert.match(source, /position:absolute/);
-  assert.match(source, /host\.appendChild\(box\)/);
-  assert.doesNotMatch(source, /insertBefore\(box, host\.nextSibling\)/);
+  assert.match(source, /function insertControlBox/);
+  assert.match(source, /host\.insertBefore\(box, reference\)/);
+  assert.doesNotMatch(source, /position:absolute/);
+  assert.doesNotMatch(source, /function positionOverlayBox/);
 });
 
 test("userscript uses modern button and panel styling", () => {
@@ -113,7 +131,7 @@ test("userscript avoids special art and offers Japanese-name copy", () => {
 
 test("userscript strips Japanese reading annotations before display and copy", () => {
   assert.match(source, /function stripReading/);
-  assert.match(source, /stripReading\(found\.printed_name/);
+  assert.match(source, /stripReading\(card\.printed_name/);
   assert.match(source, /\[一-龯々\]/);
 });
 

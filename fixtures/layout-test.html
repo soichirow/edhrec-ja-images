@@ -25,6 +25,28 @@
       align-items: start;
     }
 
+    .commander-preview {
+      display: flex;
+      gap: 16px;
+      align-items: start;
+      max-width: 420px;
+      margin: 0 0 20px;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, .12);
+    }
+
+    .commander-preview img {
+      display: block;
+      width: 180px;
+      aspect-ratio: 488 / 680;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #e2e8f0;
+    }
+
     .card {
       display: block;
       overflow: hidden;
@@ -53,6 +75,10 @@
 <body>
   <main>
     <h1>Layout Fixture</h1>
+    <div class="commander-preview">
+      <img alt="The Sixth Doctor // Susan Foreman" src="https://cards.scryfall.io/normal/front/c/0/c045ccb2-28d1-4bbe-9feb-3e86988fd24d.jpg">
+      <img alt="The Sixth Doctor // Susan Foreman" src="https://cards.scryfall.io/normal/front/a/d/ad40ec4f-37e7-4e6d-b47b-8b13ea2c9157.jpg">
+    </div>
     <div class="grid">
       <a class="card" href="/cards/sol-ring"><img alt="Sol Ring" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000001.jpg"><span class="name">Sol Ring</span></a>
       <a class="card" href="/cards/phyrexian-metamorph"><img alt="Phyrexian Metamorph" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000002.jpg"><span class="name">Phyrexian Metamorph</span></a>
@@ -85,22 +111,48 @@
         "Swords to Plowshares": "剣を鍬に",
         "Counterspell": "対抗呪文"
       };
+      var englishOnly = {
+        "The Sixth Doctor": "The Sixth Doctor",
+        "Susan Foreman": "Susan Foreman"
+      };
       var colors = {
+        "The Sixth Doctor": "#334155",
+        "Susan Foreman": "#047857",
         "Sol Ring": "#b45309",
         "Phyrexian Metamorph": "#475569",
         "Swords to Plowshares": "#2563eb",
         "Counterspell": "#7c3aed"
       };
-      var key = Object.keys(names).find(function (name) { return requested.indexOf(name) !== -1; });
+      var ids = {
+        "c045ccb2-28d1-4bbe-9feb-3e86988fd24d": "The Sixth Doctor",
+        "ad40ec4f-37e7-4e6d-b47b-8b13ea2c9157": "Susan Foreman"
+      };
+      var idKey = Object.keys(ids).find(function (id) { return requested.indexOf(id) !== -1; });
+      var key = idKey ? ids[idKey] : Object.keys(Object.assign({}, names, englishOnly)).find(function (name) { return requested.indexOf(name) !== -1; });
+      var isEnglishSearch = requested.indexOf("lang:en") !== -1;
       return Promise.resolve({
         ok: true,
         status: 200,
         json: function () {
-          var printedName = names[key] || key || "Card";
+          if (idKey) {
+            return Promise.resolve({
+              lang: "en",
+              name: key,
+              scryfall_uri: "https://scryfall.com/search?q=" + encodeURIComponent(key),
+              image_uris: {
+                normal: cardArt(key, colors[key] || "#334155")
+              }
+            });
+          }
+          if (!key || (!isEnglishSearch && !names[key])) {
+            return Promise.resolve({ data: [] });
+          }
+          var printedName = isEnglishSearch ? englishOnly[key] || key : names[key];
           var artLabel = printedName.replace(/([一-龯々])（[ぁ-ゖァ-ヺー]+）/g, "$1");
           return Promise.resolve({
             data: [{
-              lang: "ja",
+              lang: isEnglishSearch ? "en" : "ja",
+              name: key,
               printed_name: printedName,
               scryfall_uri: "https://scryfall.com/search?q=" + encodeURIComponent(key || ""),
               image_uris: {

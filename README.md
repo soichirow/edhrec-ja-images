@@ -32,7 +32,8 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 - スクロール前からカードリンクを先読みしてScryfall検索を進める
 - 先読みで見つけた日本語画像URLをブラウザキャッシュへ読み込む
 - 日本語画像が見つかるまではEDHRECの元画像をそのまま表示
-- 差し替えたカードの日本語名をカード下部に表示
+- 日本語印刷版が見つからないカードはScryfallの英語通常版を表示
+- 差し替えたカード名と操作ボタンを画像の下に表示
 - 日本語名クリックでScryfallページを開く
 - `コピー` ボタンで日本語名をコピー
 - `★` ボタンでお気に入り登録
@@ -74,8 +75,10 @@ Scryfall公式FAQでは、`api.scryfall.com` へのアクセスを10リクエス
 - API呼び出しは直列キューで実行
 - リクエスト間隔は `110ms` 以上、最大約 `9.09 req/sec`
 - `Accept: application/json` を明示
-- `429 Too Many Requests` では `Retry-After` を見て追加待機
+- `429 Too Many Requests` では `Retry-After` を見て追加待機し、時間をおいて再試行
+- 一時的な通信失敗や5xx系エラーは指数バックオフで最大2回再試行
 - 同じカード名への同時リクエストは1つに統合
+- 日本語印刷版が見つからない場合だけ、英語通常版の検索を追加
 - 検索結果は7日間キャッシュ
 - 1回のスキャンで先読みするカード数は最大80件
 - 1回のスキャンで画像を先読みするカード数は最大40件
@@ -89,7 +92,7 @@ Scryfall公式FAQでは、`api.scryfall.com` へのアクセスを10リクエス
 
 ブラウザの `localStorage` に次のデータを保存します。
 
-- Scryfall検索結果キャッシュ: `edhrec-ja-image-cache-v1`
+- Scryfall検索結果キャッシュ: `edhrec-ja-image-cache-v2`
 - お気に入りカード一覧: `edhrec-ja-image-favorites-v1`
 
 外部サーバーへお気に入り情報を送信する機能はありません。
@@ -106,11 +109,11 @@ Scryfall公式FAQでは、`api.scryfall.com` へのアクセスを10リクエス
 
 ### 一部のカードだけ英語のまま
 
-Scryfallに日本語印刷版がないカード、または通常アート寄りの日本語画像が見つからないカードは、EDHRECの元表示を残します。
+Scryfallに日本語印刷版がないカード、または通常アート寄りの日本語画像が見つからないカードは、Scryfallの英語通常版へ差し替えます。
 
 ### レイアウトが崩れる
 
-カード下部の操作バーはカード内に重ねて表示する設計です。EDHREC側のHTML構造が大きく変わった場合は、Issueで対象ページURLを共有してください。
+操作バーはカード画像の下に表示する設計です。EDHREC側のHTML構造が大きく変わった場合は、Issueで対象ページURLを共有してください。
 
 ## Project Structure
 
