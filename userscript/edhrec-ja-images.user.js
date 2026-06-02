@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-02.9
+// @version      2026-06-02.11
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -18,33 +18,35 @@
 (function () {
   "use strict";
 
-  var CACHE_KEY = "edhrec-ja-image-cache-v1";
-  var FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
-  var STYLE_ID = "edhrec-ja-image-style";
-  var CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
-  var REQUEST_GAP = 110;
-  var RETRY_AFTER_FALLBACK = 10000;
-  var MAX_PREFETCH_PER_SCAN = 80;
-  var MAX_CACHE_ENTRIES = 800;
-  var API_HEADERS = { Accept: "application/json;q=0.9,*/*;q=0.8" };
-  var imageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
-  var linkSelector = 'a[href*="/cards/"], a[href*="/commanders/"]';
-  var skipTitle = /^(abstract performance|expansion algorithm|marvel super heroes|planar engineering|reality fracture|secret lair drop|secrets of strixhaven|teenage mutant ninja turtles|the hobbit)$/i;
-  var skipWord = /^(archidekt|cardsphere|commander spellbook|crossword|edhrec|fabrec|multi|mtgstocks|moxfield|preview|scryfall|spellify)$/i;
-  var cache = readCache();
-  var favorites = readFavorites();
-  var favoriteDock = null;
-  var pending = {};
-  var queue = Promise.resolve();
-  var last = 0;
+  const CACHE_KEY = "edhrec-ja-image-cache-v1";
+  const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
+  const STYLE_ID = "edhrec-ja-image-style";
+  const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+  const REQUEST_GAP = 110;
+  const RETRY_AFTER_FALLBACK = 10000;
+  const MAX_PREFETCH_PER_SCAN = 80;
+  const MAX_IMAGE_PRELOAD_PER_SCAN = 40;
+  const MAX_CACHE_ENTRIES = 800;
+  const API_HEADERS = { Accept: "application/json;q=0.9,*/*;q=0.8" };
+  const imageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
+  const linkSelector = 'a[href*="/cards/"], a[href*="/commanders/"]';
+  const skipTitle = /^(abstract performance|expansion algorithm|marvel super heroes|planar engineering|reality fracture|secret lair drop|secrets of strixhaven|teenage mutant ninja turtles|the hobbit)$/i;
+  const skipWord = /^(archidekt|cardsphere|commander spellbook|crossword|edhrec|fabrec|multi|mtgstocks|moxfield|preview|scryfall|spellify)$/i;
+  const cache = readCache();
+  const favorites = readFavorites();
+  const pending = {};
+  const preloadedImages = {};
+  let favoriteDock = null;
+  let queue = Promise.resolve();
+  let last = 0;
 
   function text(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
   function fromHref(href) {
-    var path = String(href || "").split("?")[0].split("#")[0];
-    var slug = path.split("/").filter(Boolean).pop() || "";
+    const path = String(href || "").split("?")[0].split("#")[0];
+    let slug = path.split("/").filter(Boolean).pop() || "";
     try {
       slug = decodeURIComponent(slug);
     } catch (error) {}
@@ -68,12 +70,12 @@
   }
 
   function nameOfImage(img) {
-    var link = img.closest ? img.closest(linkSelector) : null;
+    const link = img.closest ? img.closest(linkSelector) : null;
     return normalizeName(img.getAttribute("alt") || img.getAttribute("title")) || (link ? nameOfLink(link) : "");
   }
 
   function cardImage(card) {
-    var uris = card && card.image_uris;
+    let uris = card && card.image_uris;
     if (!uris && card && card.card_faces && card.card_faces[0]) {
       uris = card.card_faces[0].image_uris;
     }
@@ -81,8 +83,8 @@
   }
 
   function isRegularArt(card) {
-    var effects = card && card.frame_effects ? card.frame_effects.join(" ") : "";
-    var promos = card && card.promo_types ? card.promo_types.join(" ") : "";
+    const effects = card && card.frame_effects ? card.frame_effects.join(" ") : "";
+    const promos = card && card.promo_types ? card.promo_types.join(" ") : "";
     if (!card) return false;
     if (card.digital || card.full_art || card.textless || card.oversized || card.variation) return false;
     if (card.border_color === "borderless") return false;
@@ -92,7 +94,7 @@
   }
 
   function fresh(key) {
-    var hit = cache[key];
+    const hit = cache[key];
     if (!hit) return false;
     if (Date.now() - hit.time > CACHE_TTL) {
       delete cache[key];
@@ -110,15 +112,15 @@
   }
 
   function getJapanese(name) {
-    var key = name.toLowerCase();
+    const key = name.toLowerCase();
     if (fresh(key)) return Promise.resolve(cache[key].value);
     if (pending[key]) return pending[key];
     pending[key] = throttled(function () {
-      var query = '!"' + name.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '" lang:ja';
-      var url = "https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=" + encodeURIComponent(query);
+      const query = '!"' + name.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '" lang:ja';
+      const url = "https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=" + encodeURIComponent(query);
       return apiJson(url).then(function (body) {
-        var list = body && body.data ? body.data : [];
-        var found = list.find(function (card) {
+        const list = body && body.data ? body.data : [];
+        const found = list.find(function (card) {
           return card.lang === "ja" && cardImage(card) && isRegularArt(card);
         });
         return remember(key, found ? { src: cardImage(found), label: stripReading(found.printed_name || found.name || name), scryfall: found.scryfall_uri || "" } : null);
@@ -144,9 +146,9 @@
   }
 
   function retryAfterMs(res) {
-    var value = res && res.headers && res.headers.get ? res.headers.get("Retry-After") : "";
-    var seconds = Number(value);
-    var date;
+    const value = res && res.headers && res.headers.get ? res.headers.get("Retry-After") : "";
+    const seconds = Number(value);
+    let date;
     if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
     date = Date.parse(value);
     if (!Number.isNaN(date)) return Math.max(0, date - Date.now());
@@ -154,8 +156,8 @@
   }
 
   function throttled(task) {
-    var run = queue.catch(function () {}).then(function () {
-      var wait = Math.max(0, REQUEST_GAP - (Date.now() - last));
+    const run = queue.catch(function () {}).then(function () {
+      const wait = Math.max(0, REQUEST_GAP - (Date.now() - last));
       return new Promise(function (resolve) {
         setTimeout(resolve, wait);
       }).then(function () {
@@ -167,24 +169,41 @@
     return run;
   }
 
+  function preloadImage(src) {
+    if (!src || preloadedImages[src]) return;
+    const image = new Image();
+    preloadedImages[src] = image;
+    image.decoding = "async";
+    image.loading = "eager";
+    image.onload = image.onerror = function () {
+      preloadedImages[src] = "done";
+    };
+    image.src = src;
+  }
+
   function prefetchLinks() {
-    var count = 0;
+    let count = 0;
+    let imageCount = 0;
     Array.prototype.forEach.call(document.querySelectorAll(linkSelector), function (link) {
       if (count >= MAX_PREFETCH_PER_SCAN || link.dataset.edhrecJaPrefetch) return;
-      var name = nameOfLink(link);
+      const name = nameOfLink(link);
       if (!name) return;
       link.dataset.edhrecJaPrefetch = "1";
       count += 1;
-      getJapanese(name);
+      getJapanese(name).then(function (hit) {
+        if (!hit || !hit.src || imageCount >= MAX_IMAGE_PRELOAD_PER_SCAN) return;
+        imageCount += 1;
+        preloadImage(hit.src);
+      });
     });
   }
 
   function replaceOne(img) {
     if (!img || img.dataset.edhrecJaState) return;
-    var link = img.closest ? img.closest(linkSelector) : null;
-    var src = img.currentSrc || img.src || img.getAttribute("data-src") || "";
+    const link = img.closest ? img.closest(linkSelector) : null;
+    const src = img.currentSrc || img.src || img.getAttribute("data-src") || "";
     if (!link && !/scryfall/i.test(src)) return;
-    var name = nameOfImage(img);
+    const name = nameOfImage(img);
     if (!name) return;
     img.dataset.edhrecJaState = "pending";
     getJapanese(name).then(function (hit) {
@@ -192,6 +211,7 @@
         img.dataset.edhrecJaState = "missing";
         return;
       }
+      preloadImage(hit.src);
       img.src = hit.src;
       img.removeAttribute("srcset");
       img.setAttribute("data-src", hit.src);
@@ -203,20 +223,61 @@
     });
   }
 
+  function shopSearchUrl(base, queryKey, queryValue) {
+    const url = new URL(base);
+    url.searchParams.set(queryKey, queryValue);
+    return url.toString();
+  }
+
+  function shopLinks(englishName, jaLabel) {
+    const query = jaLabel || englishName;
+    return [
+      { label: "晴", title: "晴れる屋", url: shopSearchUrl("https://www.hareruyamtg.com/ja/products/search", "product", query) },
+      { label: "BM", title: "BIG MAGIC", url: shopSearchUrl("https://www.bigweb.co.jp/ja/products/mtg", "freeword", query) },
+      { label: "SS", title: "シングルスター", url: shopSearchUrl("https://www.singlestar.jp/product-list", "keyword", query) },
+      { label: "東", title: "東京MTG", url: shopSearchUrl("https://tokyomtg.com/search.html", "keyword", englishName) },
+      { label: "メ", title: "メルカリ", url: shopSearchUrl("https://jp.mercari.com/search", "keyword", query) },
+    ];
+  }
+
+  function renderShopLinks(row, englishName, jaLabel) {
+    if (!row) return;
+    row.textContent = "";
+    shopLinks(englishName, jaLabel).forEach(function (shop) {
+      const link = document.createElement("a");
+      link.href = shop.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = shop.label;
+      link.title = shop.title + "で検索";
+      link.className = "edhrec-ja-shop-link";
+      link.addEventListener("click", function (event) {
+        event.stopPropagation();
+      });
+      row.appendChild(link);
+    });
+  }
+
   function showScryfallLink(img, englishName, hit) {
-    var host = (img.closest && img.closest(linkSelector)) || img;
+    const host = (img.closest && img.closest(linkSelector)) || img;
     if (!host || !hit.scryfall) return;
     ensureFavoriteDock();
     injectStyles();
     prepareOverlayHost(host);
-    var box = host.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
-    var label;
-    var copy;
-    var favorite;
+    let box = host.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
+    let actionRow;
+    let shopRow;
+    let label;
+    let copy;
+    let favorite;
     if (!box) {
       box = document.createElement("span");
       box.dataset.edhrecJaBox = englishName;
       box.className = "edhrec-ja-overlay";
+      actionRow = document.createElement("span");
+      actionRow.className = "edhrec-ja-action-row";
+      shopRow = document.createElement("span");
+      shopRow.className = "edhrec-ja-shop-row";
       label = document.createElement("button");
       label.type = "button";
       label.className = "edhrec-ja-name-button";
@@ -255,24 +316,44 @@
         updateFavoriteButton(favorite, box.dataset.englishName);
         renderFavorites();
       });
-      box.appendChild(label);
-      box.appendChild(copy);
-      box.appendChild(favorite);
+      actionRow.appendChild(label);
+      actionRow.appendChild(copy);
+      actionRow.appendChild(favorite);
+      box.appendChild(actionRow);
+      box.appendChild(shopRow);
       host.appendChild(box);
     } else {
+      actionRow = box.querySelector(".edhrec-ja-action-row");
+      shopRow = box.querySelector(".edhrec-ja-shop-row");
       label = box.querySelector(".edhrec-ja-name-button");
+      copy = box.querySelector(".edhrec-ja-chip-button");
       favorite = box.querySelector("button[title='お気に入り']");
+      if (!actionRow) {
+        actionRow = document.createElement("span");
+        actionRow.className = "edhrec-ja-action-row";
+        if (label) actionRow.appendChild(label);
+        if (copy) actionRow.appendChild(copy);
+        if (favorite) actionRow.appendChild(favorite);
+        box.insertBefore(actionRow, box.firstChild);
+      }
+      if (!shopRow) {
+        shopRow = document.createElement("span");
+        shopRow.className = "edhrec-ja-shop-row";
+        box.appendChild(shopRow);
+      }
     }
     box.dataset.englishName = englishName;
     box.dataset.jaLabel = hit.label;
     box.dataset.scryfall = hit.scryfall;
     box.dataset.imageSrc = hit.src;
     label.textContent = hit.label;
+    renderShopLinks(shopRow, englishName, hit.label);
+    positionOverlayBox(box, host, img);
     updateFavoriteButton(favorite, englishName);
   }
 
   function prepareOverlayHost(host) {
-    var style = window.getComputedStyle ? window.getComputedStyle(host) : null;
+    const style = window.getComputedStyle ? window.getComputedStyle(host) : null;
     if (!host.style.position || host.style.position === "static") {
       host.style.position = "relative";
     }
@@ -282,16 +363,24 @@
     host.style.overflow = host.style.overflow || "hidden";
   }
 
+  function positionOverlayBox(box, host, img) {
+    if (!box || !host || !img || !host.getBoundingClientRect || !img.getBoundingClientRect) return;
+    const hostRect = host.getBoundingClientRect();
+    const imageRect = img.getBoundingClientRect();
+    const lowerContent = Math.max(0, Math.round(hostRect.bottom - imageRect.bottom));
+    box.style.bottom = Math.max(6, lowerContent + 6) + "px";
+  }
+
   function fallbackCopyText(value) {
-    var ok = false;
-    var selection = document.getSelection && document.getSelection();
-    var ranges = [];
+    let ok = false;
+    const selection = document.getSelection && document.getSelection();
+    const ranges = [];
     if (selection) {
-      for (var index = 0; index < selection.rangeCount; index += 1) {
+      for (let index = 0; index < selection.rangeCount; index += 1) {
         ranges.push(selection.getRangeAt(index));
       }
     }
-    var textarea = document.createElement("textarea");
+    const textarea = document.createElement("textarea");
     textarea.value = value;
     textarea.style.position = "fixed";
     textarea.style.left = "-9999px";
@@ -332,7 +421,7 @@
   }
 
   function toggleFavorite(card) {
-    var key = favoriteKey(card.english);
+    const key = favoriteKey(card.english);
     if (!key) return;
     if (favorites[key]) {
       delete favorites[key];
@@ -350,7 +439,7 @@
 
   function updateFavoriteButton(button, englishName) {
     if (!button) return;
-    var on = Boolean(favorites[favoriteKey(englishName)]);
+    const on = Boolean(favorites[favoriteKey(englishName)]);
     button.textContent = on ? "★" : "☆";
     button.classList.toggle("is-active", on);
     button.setAttribute("aria-pressed", on ? "true" : "false");
@@ -389,14 +478,14 @@
 
   function renderFavorites() {
     ensureFavoriteDock();
-    var list = favoriteList();
+    const list = favoriteList();
     favoriteDock.button.textContent = "★ お気に入り " + list.length;
     favoriteDock.panel.style.display = favoriteDock.open ? "block" : "none";
     favoriteDock.panel.textContent = "";
     if (!favoriteDock.open) return;
-    var actions = document.createElement("div");
+    const actions = document.createElement("div");
     actions.className = "edhrec-ja-panel-actions";
-    var copyAll = document.createElement("button");
+    const copyAll = document.createElement("button");
     copyAll.type = "button";
     copyAll.textContent = "全部コピー";
     copyAll.className = "edhrec-ja-panel-button";
@@ -415,9 +504,9 @@
       return;
     }
     list.forEach(function (card) {
-      var row = document.createElement("div");
-      var link = document.createElement("a");
-      var remove = document.createElement("button");
+      const row = document.createElement("div");
+      const link = document.createElement("a");
+      const remove = document.createElement("button");
       row.className = "edhrec-ja-favorite-row";
       link.href = card.scryfall;
       link.target = "_blank";
@@ -482,7 +571,7 @@
   }
 
   function pruneCache() {
-    var keys = Object.keys(cache);
+    const keys = Object.keys(cache);
     if (keys.length <= MAX_CACHE_ENTRIES) return;
     keys.sort(function (a, b) {
       return cache[a].time - cache[b].time;
@@ -497,17 +586,21 @@
 
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
-    var style = document.createElement("style");
+    const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      ".edhrec-ja-overlay{position:absolute;left:6px;right:6px;bottom:6px;z-index:20;display:flex;align-items:center;gap:5px;box-sizing:border-box;max-width:calc(100% - 12px);padding:5px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:linear-gradient(135deg,rgba(15,23,42,.92),rgba(30,41,59,.82));color:#fff;font-size:11px;line-height:1.2;box-shadow:0 10px 28px rgba(0,0,0,.34);backdrop-filter:blur(10px);pointer-events:auto;}",
+      ".edhrec-ja-overlay{position:absolute;left:6px;right:6px;bottom:6px;z-index:20;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;max-width:calc(100% - 12px);padding:5px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:linear-gradient(135deg,rgba(15,23,42,.92),rgba(30,41,59,.82));color:#fff;font-size:11px;line-height:1.2;box-shadow:0 10px 28px rgba(0,0,0,.34);backdrop-filter:blur(10px);pointer-events:auto;}",
+      ".edhrec-ja-action-row{display:flex;align-items:center;gap:5px;width:100%;min-width:0;}",
+      ".edhrec-ja-shop-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;width:100%;}",
+      ".edhrec-ja-shop-link{display:block;min-width:0;overflow:hidden;padding:3px 0;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(255,255,255,.1);color:#e0f2fe;text-align:center;text-decoration:none;font-size:10px;font-weight:800;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}",
+      ".edhrec-ja-shop-link:hover{background:rgba(14,165,233,.24);border-color:rgba(125,211,252,.55);color:#fff;}",
       ".edhrec-ja-name-button{min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:3px 7px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.1);color:#fff;text-align:left;text-decoration:none;font:inherit;font-weight:700;line-height:1.25;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}",
       ".edhrec-ja-name-button:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.28);}",
-      ".edhrec-ja-name-button,.edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}",
+      ".edhrec-ja-name-button,.edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-shop-link,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}",
       ".edhrec-ja-chip-button{flex:0 0 auto;padding:3px 8px;border:1px solid rgba(255,255,255,.56);border-radius:999px;background:rgba(255,255,255,.94);color:#1e293b;font-size:11px;font-weight:650;line-height:1.25;box-shadow:0 2px 8px rgba(0,0,0,.18);cursor:pointer;}",
       ".edhrec-ja-star-button{flex:0 0 auto;min-width:25px;height:22px;padding:0 6px;border:1px solid rgba(251,191,36,.72);border-radius:999px;background:rgba(255,251,235,.96);color:#92400e;font-size:13px;font-weight:800;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.18);cursor:pointer;}",
       ".edhrec-ja-star-button.is-active{background:linear-gradient(135deg,#f59e0b,#facc15);border-color:#fde68a;color:#451a03;}",
-      ".edhrec-ja-name-button:hover,.edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.18);}",
+      ".edhrec-ja-name-button:hover,.edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-shop-link:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.18);}",
       ".edhrec-ja-dock{position:fixed;right:14px;bottom:14px;z-index:2147483647;font-family:system-ui,sans-serif;}",
       ".edhrec-ja-dock-button{padding:9px 13px;border:1px solid rgba(245,158,11,.45);border-radius:999px;background:linear-gradient(135deg,#fff7ed,#fffbeb);color:#78350f;font-size:13px;font-weight:750;box-shadow:0 12px 34px rgba(15,23,42,.2);cursor:pointer;}",
       ".edhrec-ja-favorites-panel{display:none;width:320px;max-height:46vh;overflow:auto;margin-bottom:10px;padding:12px;border:1px solid rgba(148,163,184,.38);border-radius:12px;background:rgba(255,255,255,.96);color:#0f172a;box-shadow:0 20px 54px rgba(15,23,42,.24);backdrop-filter:blur(10px);font-size:12px;}",
