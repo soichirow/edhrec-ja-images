@@ -1,0 +1,117 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDHREC Japanese Images Layout Fixture</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f8fafc;
+      color: #0f172a;
+      font-family: system-ui, sans-serif;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    .card {
+      display: block;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, .12);
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 488 / 680;
+      object-fit: cover;
+      background: #e2e8f0;
+    }
+
+    .name {
+      padding: 8px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Layout Fixture</h1>
+    <div class="grid">
+      <a class="card" href="/cards/sol-ring"><img alt="Sol Ring" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000001.jpg"><span class="name">Sol Ring</span></a>
+      <a class="card" href="/cards/phyrexian-metamorph"><img alt="Phyrexian Metamorph" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000002.jpg"><span class="name">Phyrexian Metamorph</span></a>
+      <a class="card" href="/cards/swords-to-plowshares"><img alt="Swords to Plowshares" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000003.jpg"><span class="name">Swords to Plowshares</span></a>
+      <a class="card" href="/cards/counterspell"><img alt="Counterspell" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000004.jpg"><span class="name">Counterspell</span></a>
+    </div>
+  </main>
+  <script>
+    function cardArt(label, color) {
+      var svg = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 680">',
+        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1">',
+        '<stop stop-color="' + color + '" stop-opacity=".95"/>',
+        '<stop offset="1" stop-color="#111827" stop-opacity=".95"/>',
+        '</linearGradient></defs>',
+        '<rect width="488" height="680" rx="28" fill="url(#g)"/>',
+        '<rect x="24" y="24" width="440" height="628" rx="22" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.42)" stroke-width="3"/>',
+        '<text x="244" y="318" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="34" font-weight="700">' + label + '</text>',
+        '<text x="244" y="366" text-anchor="middle" fill="rgba(255,255,255,.78)" font-family="system-ui,sans-serif" font-size="20">Japanese print</text>',
+        '</svg>'
+      ].join('');
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    window.fetch = function (url) {
+      var requested = decodeURIComponent(String(url));
+      var names = {
+        "Sol Ring": "太陽の指輪",
+        "Phyrexian Metamorph": "ファイレクシアの変（へん）形（けい）者（しゃ）",
+        "Swords to Plowshares": "剣を鍬に",
+        "Counterspell": "対抗呪文"
+      };
+      var colors = {
+        "Sol Ring": "#b45309",
+        "Phyrexian Metamorph": "#475569",
+        "Swords to Plowshares": "#2563eb",
+        "Counterspell": "#7c3aed"
+      };
+      var key = Object.keys(names).find(function (name) { return requested.indexOf(name) !== -1; });
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: function () {
+          var printedName = names[key] || key || "Card";
+          var artLabel = printedName.replace(/([一-龯々])（[ぁ-ゖァ-ヺー]+）/g, "$1");
+          return Promise.resolve({
+            data: [{
+              lang: "ja",
+              printed_name: printedName,
+              scryfall_uri: "https://scryfall.com/search?q=" + encodeURIComponent(key || ""),
+              image_uris: {
+                normal: cardArt(artLabel, colors[key] || "#334155")
+              }
+            }]
+          });
+        }
+      });
+    };
+  </script>
+  <script src="../userscript/edhrec-ja-images.user.js"></script>
+</body>
+</html>
