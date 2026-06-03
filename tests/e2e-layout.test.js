@@ -53,6 +53,12 @@ test("layout fixture works in a real browser", async (t) => {
   const cdp = await CdpSession.connect(page.webSocketDebuggerUrl);
   t.after(() => cdp.close());
   await cdp.send("Runtime.enable");
+  const consoleMessages = [];
+  cdp.on("Runtime.consoleAPICalled", (params) => {
+    consoleMessages.push(params.args.map((arg) => arg.value || "").join(" "));
+  });
+  await cdp.send("Page.enable");
+  await cdp.send("Page.reload", { ignoreCache: true });
 
   const ready = await poll(async () => {
     const state = await cdp.evaluate(pageStateExpression());
@@ -72,6 +78,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.deepEqual(ready.commanderAlts, ["The Sixth Doctor", "Susan Foreman"]);
   assert.equal(ready.wideThumbnailOverlayCount, 0);
   assert.notEqual(ready.wideThumbnailState, "replaced");
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.2"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -231,6 +238,7 @@ class CdpSession {
     this.ws = ws;
     this.nextId = 1;
     this.pending = new Map();
+    this.listeners = {};
     ws.addEventListener("message", (event) => this.onMessage(event));
   }
 
@@ -266,6 +274,9 @@ class CdpSession {
 
   onMessage(event) {
     const data = JSON.parse(event.data);
+    if (data.method && this.listeners[data.method]) {
+      this.listeners[data.method].forEach((listener) => listener(data.params || {}));
+    }
     if (!data.id || !this.pending.has(data.id)) return;
     const { resolve, reject } = this.pending.get(data.id);
     this.pending.delete(data.id);
@@ -278,5 +289,10 @@ class CdpSession {
 
   close() {
     this.ws.close();
+  }
+
+  on(method, listener) {
+    if (!this.listeners[method]) this.listeners[method] = [];
+    this.listeners[method].push(listener);
   }
 }

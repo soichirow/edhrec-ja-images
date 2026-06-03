@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-03.1
+// @version      2026-06-03.2
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,6 +21,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
+  const SCRIPT_VERSION = "2026-06-03.2";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -40,6 +41,8 @@
   let favoriteDock = null;
   let queue = Promise.resolve();
   let last = 0;
+
+  console.info("[EDHREC JA Images] version " + SCRIPT_VERSION);
 
   function text(value) {
     return String(value || "").replace(/\s+/g, " ").trim();

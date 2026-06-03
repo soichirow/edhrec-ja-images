@@ -19,12 +19,18 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
+  assert.match(source, /@version\s+2026-06-03\.2/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
   assert.match(source, /@homepageURL\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
   assert.match(source, /@supportURL\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images\/issues/);
   assert.doesNotMatch(source.split(/\r?\n/).slice(0, 12).join("\n"), /SAFE/);
+});
+
+test("userscript logs its installed version for diagnostics", () => {
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-03\.2"/);
+  assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
 test("userscript skips known EDHREC non-card titles", () => {
