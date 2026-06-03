@@ -93,9 +93,12 @@ test("userscript renders store search links without embedded affiliate parameter
   assert.match(source, /function shopLinks/);
   assert.match(source, /function renderShopLinks/);
   assert.match(source, /hareruyamtg\.com/);
-  assert.match(source, /bigweb\.co\.jp/);
+  assert.match(source, /https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list/);
+  assert.match(source, /"name", englishName/);
   assert.match(source, /singlestar\.jp/);
-  assert.match(source, /tokyomtg\.com/);
+  assert.match(source, /https:\/\/tokyomtg\.com\/cardpage\.html/);
+  assert.match(source, /"query", englishName/);
+  assert.match(source, /searchParams\.set\("p", "q"\)/);
   assert.match(source, /jp\.mercari\.com\/search/);
   assert.match(source, /edhrec-ja-shop-link/);
   assert.doesNotMatch(source, /utm_|affiliate|ambassador|afid|a_id/i);
@@ -104,9 +107,18 @@ test("userscript renders store search links without embedded affiliate parameter
 test("userscript renders controls below the card image for readability", () => {
   assert.match(source, /function prepareOverlayHost/);
   assert.match(source, /function insertControlBox/);
-  assert.match(source, /host\.insertBefore\(box, reference\)/);
+  assert.match(source, /function controlScope/);
+  assert.match(source, /function metadataSiblingAfter/);
+  assert.match(source, /after\.parentNode\.insertBefore\(box, after\.nextSibling\)/);
+  assert.doesNotMatch(source, /style\.overflow/);
   assert.doesNotMatch(source, /position:absolute/);
   assert.doesNotMatch(source, /function positionOverlayBox/);
+});
+
+test("userscript skips non-card-shaped thumbnails", () => {
+  assert.match(source, /function isCardLikeImage/);
+  assert.match(source, /getBoundingClientRect/);
+  assert.match(source, /isCardLikeImage\(img\)/);
 });
 
 test("userscript uses modern button and panel styling", () => {

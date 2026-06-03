@@ -19,6 +19,7 @@ test("layout fixture works in a real browser", async (t) => {
 
   const server = await startStaticServer(rootDir);
   t.after(async () => {
+    if (server.closeAllConnections) server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   });
 
@@ -61,13 +62,19 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.commanderOverlayCount, 0);
   assert.deepEqual(ready.cardOverlays, [1, 1, 1, 1]);
   assert.equal(ready.imageOverlapCount, 0);
+  assert.equal(ready.nativeMetaOverlapCount, 0);
+  assert.deepEqual(ready.nativeMetaBeforeOverlay, [true, true, true, true]);
   assert.equal(ready.shopLinkCount, 20);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
+  assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
+  assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
   assert.deepEqual(ready.cardLabels, ["太陽の指輪", "ファイレクシアの変形者", "剣を鍬に", "対抗呪文"]);
   assert.deepEqual(ready.commanderAlts, ["The Sixth Doctor", "Susan Foreman"]);
+  assert.equal(ready.wideThumbnailOverlayCount, 0);
+  assert.notEqual(ready.wideThumbnailState, "replaced");
 
   const favoriteState = await cdp.evaluate(`(() => {
-    document.querySelector(".card .edhrec-ja-star-button").click();
+    document.querySelector(".card-shell .edhrec-ja-star-button").click();
     const favorites = JSON.parse(localStorage.getItem("edhrec-ja-image-favorites-v1") || "{}");
     return {
       favoriteCount: Object.keys(favorites).length,
@@ -81,9 +88,12 @@ test("layout fixture works in a real browser", async (t) => {
 function pageStateExpression() {
   return `(() => {
     const commander = document.querySelector(".commander-preview");
-    const cards = Array.from(document.querySelectorAll(".card"));
+    const cards = Array.from(document.querySelectorAll(".card-shell"));
     const overlays = Array.from(document.querySelectorAll(".edhrec-ja-overlay"));
     const images = Array.from(document.querySelectorAll("main img"));
+    const cardishImages = images.filter((img) => !img.closest(".wide-thumbnail"));
+    const wideThumbnail = document.querySelector(".wide-thumbnail");
+    const metas = Array.from(document.querySelectorAll(".native-meta"));
     const imageOverlapCount = overlays.filter((overlay) => {
       const a = overlay.getBoundingClientRect();
       return images.some((img) => {
@@ -91,16 +101,34 @@ function pageStateExpression() {
         return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
       });
     }).length;
-    const replaced = images.map((img) => img.dataset.edhrecJaState || "");
+    const nativeMetaOverlapCount = overlays.filter((overlay) => {
+      const a = overlay.getBoundingClientRect();
+      return metas.some((meta) => {
+        const b = meta.getBoundingClientRect();
+        return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+      });
+    }).length;
+    const replaced = cardishImages.map((img) => img.dataset.edhrecJaState || "");
+    const firstShopLinks = Array.from(document.querySelectorAll(".card-shell:first-of-type .edhrec-ja-shop-link"));
     return {
-      ready: images.length === 6 && replaced.every((state) => state === "replaced") && overlays.length === 4,
+      ready: cardishImages.length === 6 && replaced.every((state) => state === "replaced") && overlays.length >= 4,
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
       cardLabels: cards.map((card) => card.querySelector(".edhrec-ja-name-button") && card.querySelector(".edhrec-ja-name-button").textContent),
       imageOverlapCount,
-      shopLabels: Array.from(document.querySelectorAll(".card:first-of-type .edhrec-ja-shop-link")).map((link) => link.textContent),
+      nativeMetaOverlapCount,
+      nativeMetaBeforeOverlay: cards.map((card) => {
+        const meta = card.querySelector(".native-meta");
+        const overlay = card.querySelector(".edhrec-ja-overlay");
+        if (!meta || !overlay) return false;
+        return meta.getBoundingClientRect().bottom <= overlay.getBoundingClientRect().top;
+      }),
+      shopLabels: firstShopLinks.map((link) => link.textContent),
+      shopHrefs: firstShopLinks.map((link) => link.href),
       shopLinkCount: document.querySelectorAll(".edhrec-ja-shop-link").length,
+      wideThumbnailOverlayCount: wideThumbnail ? wideThumbnail.querySelectorAll(".edhrec-ja-overlay").length : -1,
+      wideThumbnailState: wideThumbnail ? wideThumbnail.querySelector("img").dataset.edhrecJaState || "" : "",
       replaced
     };
   })()`;

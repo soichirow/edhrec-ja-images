@@ -47,12 +47,16 @@
       background: #e2e8f0;
     }
 
-    .card {
+    .card-shell {
       display: block;
       overflow: hidden;
       border-radius: 8px;
       background: #fff;
       box-shadow: 0 2px 10px rgba(15, 23, 42, .12);
+    }
+
+    .card {
+      display: block;
       text-decoration: none;
       color: inherit;
     }
@@ -70,6 +74,47 @@
       font-size: 13px;
       line-height: 1.35;
     }
+
+    .native-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 46px;
+      padding: 7px 8px 9px;
+      border-top: 1px solid #e2e8f0;
+      color: #0369a1;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .native-meta strong {
+      color: #0f172a;
+      font-size: 16px;
+    }
+
+    .wide-thumbnails {
+      max-width: 280px;
+      margin-top: 18px;
+    }
+
+    .wide-thumbnail {
+      display: block;
+      margin-bottom: 10px;
+      padding: 6px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, .12);
+    }
+
+    .wide-thumbnail img {
+      display: block;
+      width: 250px;
+      height: 46px;
+      object-fit: fill;
+      background: #e2e8f0;
+    }
   </style>
 </head>
 <body>
@@ -80,11 +125,14 @@
       <img alt="The Sixth Doctor // Susan Foreman" src="https://cards.scryfall.io/normal/front/a/d/ad40ec4f-37e7-4e6d-b47b-8b13ea2c9157.jpg">
     </div>
     <div class="grid">
-      <a class="card" href="/cards/sol-ring"><img alt="Sol Ring" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000001.jpg"><span class="name">Sol Ring</span></a>
-      <a class="card" href="/cards/phyrexian-metamorph"><img alt="Phyrexian Metamorph" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000002.jpg"><span class="name">Phyrexian Metamorph</span></a>
-      <a class="card" href="/cards/swords-to-plowshares"><img alt="Swords to Plowshares" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000003.jpg"><span class="name">Swords to Plowshares</span></a>
-      <a class="card" href="/cards/counterspell"><img alt="Counterspell" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000004.jpg"><span class="name">Counterspell</span></a>
+      <article class="card-shell"><a class="card" href="/cards/sol-ring"><img alt="Sol Ring" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000001.jpg"><span class="name">Sol Ring</span></a><div class="native-meta"><span>€0.22</span><strong>65%</strong><span>synergy</span></div></article>
+      <article class="card-shell"><a class="card" href="/cards/phyrexian-metamorph"><img alt="Phyrexian Metamorph" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000002.jpg"><span class="name">Phyrexian Metamorph</span></a><div class="native-meta"><span>€0.36</span><strong>61%</strong><span>synergy</span></div></article>
+      <article class="card-shell"><a class="card" href="/cards/swords-to-plowshares"><img alt="Swords to Plowshares" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000003.jpg"><span class="name">Swords to Plowshares</span></a><div class="native-meta"><span>€0.16</span><strong>60%</strong><span>synergy</span></div></article>
+      <article class="card-shell"><a class="card" href="/cards/counterspell"><img alt="Counterspell" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000004.jpg"><span class="name">Counterspell</span></a><div class="native-meta"><span>€0.23</span><strong>61%</strong><span>inclusion</span></div></article>
     </div>
+    <aside class="wide-thumbnails" aria-label="Non-card-shaped thumbnails">
+      <a class="wide-thumbnail" href="/cards/arcane-signet"><img alt="Arcane Signet" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 92'%3E%3Crect width='500' height='92' fill='%23e2e8f0'/%3E%3Ctext x='250' y='54' text-anchor='middle' font-family='Arial,sans-serif' font-size='26' font-weight='700' fill='%230f172a'%3EArcane Signet original thumbnail%3C/text%3E%3C/svg%3E"></a>
+    </aside>
   </main>
   <script>
     function cardArt(label, color) {
@@ -109,7 +157,8 @@
         "Sol Ring": "太陽の指輪",
         "Phyrexian Metamorph": "ファイレクシアの変（へん）形（けい）者（しゃ）",
         "Swords to Plowshares": "剣を鍬に",
-        "Counterspell": "対抗呪文"
+        "Counterspell": "対抗呪文",
+        "Arcane Signet": "秘儀の印鑑"
       };
       var englishOnly = {
         "The Sixth Doctor": "The Sixth Doctor",
@@ -121,7 +170,8 @@
         "Sol Ring": "#b45309",
         "Phyrexian Metamorph": "#475569",
         "Swords to Plowshares": "#2563eb",
-        "Counterspell": "#7c3aed"
+        "Counterspell": "#7c3aed",
+        "Arcane Signet": "#0f766e"
       };
       var ids = {
         "c045ccb2-28d1-4bbe-9feb-3e86988fd24d": "The Sixth Doctor",

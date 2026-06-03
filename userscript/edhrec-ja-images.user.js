@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-02.12
+// @version      2026-06-03.1
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -87,6 +87,17 @@
       uris = card.card_faces[0].image_uris;
     }
     return uris ? uris.normal || uris.large || uris.small || uris.png || "" : "";
+  }
+
+  function isCardLikeImage(img) {
+    const rect = img && img.getBoundingClientRect ? img.getBoundingClientRect() : null;
+    const width = rect && rect.width ? rect.width : img.width || img.naturalWidth;
+    const height = rect && rect.height ? rect.height : img.height || img.naturalHeight;
+    let ratio;
+    if (!width || !height) return true;
+    if (width < 40 || height < 40) return false;
+    ratio = width / height;
+    return ratio >= 0.45 && ratio <= 0.95;
   }
 
   function isRegularArt(card) {
@@ -279,6 +290,7 @@
 
   function replaceOne(img) {
     if (!img || img.dataset.edhrecJaState) return;
+    if (!isCardLikeImage(img)) return;
     const link = img.closest ? img.closest(linkSelector) : null;
     const src = img.currentSrc || img.src || img.getAttribute("data-src") || "";
     if (!link && !/scryfall/i.test(src)) return;
@@ -307,16 +319,18 @@
   function shopSearchUrl(base, queryKey, queryValue) {
     const url = new URL(base);
     url.searchParams.set(queryKey, queryValue);
-    return url.toString();
+    return url;
   }
 
   function shopLinks(englishName, jaLabel) {
     const query = jaLabel || englishName;
+    const tokyoUrl = shopSearchUrl("https://tokyomtg.com/cardpage.html", "query", englishName);
+    tokyoUrl.searchParams.set("p", "q");
     return [
       { label: "晴", title: "晴れる屋", url: shopSearchUrl("https://www.hareruyamtg.com/ja/products/search", "product", query) },
-      { label: "BM", title: "BIG MAGIC", url: shopSearchUrl("https://www.bigweb.co.jp/ja/products/mtg", "freeword", query) },
+      { label: "BM", title: "BIG MAGIC", url: shopSearchUrl("https://www.bigweb.co.jp/ja/products/mtg/list", "name", englishName) },
       { label: "SS", title: "シングルスター", url: shopSearchUrl("https://www.singlestar.jp/product-list", "keyword", query) },
-      { label: "東", title: "東京MTG", url: shopSearchUrl("https://tokyomtg.com/search.html", "keyword", englishName) },
+      { label: "東", title: "東京MTG", url: tokyoUrl },
       { label: "メ", title: "メルカリ", url: shopSearchUrl("https://jp.mercari.com/search", "keyword", query) },
     ];
   }
@@ -326,7 +340,7 @@
     row.textContent = "";
     shopLinks(englishName, jaLabel).forEach(function (shop) {
       const link = document.createElement("a");
-      link.href = shop.url;
+      link.href = shop.url.toString();
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = shop.label;
@@ -342,10 +356,11 @@
   function showScryfallLink(img, englishName, hit) {
     const host = img.closest && img.closest(linkSelector);
     if (!host || !hit.scryfall) return;
+    const scope = controlScope(host);
     ensureFavoriteDock();
     injectStyles();
-    prepareOverlayHost(host);
-    let box = host.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
+    prepareOverlayHost(scope);
+    let box = scope.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
     let actionRow;
     let shopRow;
     let label;
@@ -440,11 +455,32 @@
     if (style && style.display === "inline") {
       host.style.display = "inline-block";
     }
-    host.style.overflow = host.style.overflow || "hidden";
+  }
+
+  function controlScope(host) {
+    return metadataSiblingAfter(host) ? host.parentNode : host;
+  }
+
+  function metadataSiblingAfter(host) {
+    let sibling = host && host.nextElementSibling;
+    let last = null;
+    while (sibling) {
+      if (sibling.matches && sibling.matches(linkSelector)) break;
+      if (sibling.querySelector && sibling.querySelector("img")) break;
+      if (text(sibling.textContent)) last = sibling;
+      sibling = sibling.nextElementSibling;
+    }
+    return last;
   }
 
   function insertControlBox(host, img, box) {
     if (!host || !img || !box || host === img) return;
+    const after = metadataSiblingAfter(host);
+    if (after && after.parentNode) {
+      if (after.nextSibling === box) return;
+      after.parentNode.insertBefore(box, after.nextSibling);
+      return;
+    }
     const reference = img.nextSibling;
     if (reference === box) return;
     host.insertBefore(box, reference);
