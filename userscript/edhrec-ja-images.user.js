@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-03.5
+// @version      2026-06-03.6
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,7 +21,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-03.5";
+  const SCRIPT_VERSION = "2026-06-03.6";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -378,6 +378,7 @@
     injectStyles();
     prepareOverlayHost(scope);
     let box = scope.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
+    let scryfall;
     let shopRow;
     let copy;
     let favorite;
@@ -387,19 +388,28 @@
       box.className = "edhrec-ja-overlay";
     }
     box.textContent = "";
+    scryfall = document.createElement("a");
+    scryfall.href = hit.scryfall;
+    scryfall.target = "_blank";
+    scryfall.rel = "noopener noreferrer";
+    scryfall.className = "edhrec-ja-scryfall-link";
+    setIconControl(scryfall, "external", "Scryfallで開く");
+    scryfall.addEventListener("click", function (event) {
+      event.stopPropagation();
+    });
     shopRow = document.createElement("span");
     shopRow.className = "edhrec-ja-shop-row";
     copy = document.createElement("button");
     copy.type = "button";
-    copy.textContent = "コピー";
     copy.className = "edhrec-ja-chip-button";
+    setIconControl(copy, "copy", "カード名をコピー");
     copy.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
       copyText(box.dataset.jaLabel).then(function (ok) {
-        copy.textContent = ok ? "コピー済み" : "失敗";
+        setIconControl(copy, ok ? "check" : "x", ok ? "コピーしました" : "コピーに失敗しました");
         setTimeout(function () {
-          copy.textContent = "コピー";
+          setIconControl(copy, "copy", "カード名をコピー");
         }, 1200);
       });
     });
@@ -419,6 +429,7 @@
       updateFavoriteButton(favorite, box.dataset.englishName);
       renderFavorites();
     });
+    box.appendChild(scryfall);
     box.appendChild(shopRow);
     box.appendChild(copy);
     box.appendChild(favorite);
@@ -436,6 +447,49 @@
       });
     }
     updateFavoriteButton(favorite, englishName);
+  }
+
+  function setIconControl(control, icon, label) {
+    control.textContent = "";
+    control.setAttribute("aria-label", label);
+    control.title = label;
+    control.appendChild(iconSvg(icon));
+  }
+
+  function iconSvg(icon) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.dataset.edhrecJaIcon = icon;
+    if (icon === "check") {
+      appendSvgPath(svg, "M20 6 9 17l-5-5");
+    } else if (icon === "x") {
+      appendSvgPath(svg, "M18 6 6 18M6 6l12 12");
+    } else if (icon === "external") {
+      appendSvgPath(svg, "M14 3h7v7M21 3l-9 9M11 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6");
+    } else {
+      appendSvgRect(svg, "9", "9", "11", "11");
+      appendSvgPath(svg, "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1");
+    }
+    return svg;
+  }
+
+  function appendSvgPath(svg, d) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+
+  function appendSvgRect(svg, x, y, width, height) {
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", x);
+    rect.setAttribute("y", y);
+    rect.setAttribute("width", width);
+    rect.setAttribute("height", height);
+    rect.setAttribute("rx", "2");
+    rect.setAttribute("ry", "2");
+    svg.appendChild(rect);
   }
 
   function prepareOverlayHost(host) {
@@ -743,14 +797,17 @@
     style.id = STYLE_ID;
     style.textContent = [
       ".edhrec-ja-overlay{display:flex;flex-direction:row;align-items:center;gap:4px;box-sizing:border-box;width:100%;margin:0;padding:3px 5px;border-top:1px solid rgba(96,165,250,.22);border-bottom:1px solid rgba(0,0,0,.28);background:rgba(30,39,47,.94);color:#bfdbfe;font-size:10px;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);pointer-events:auto;}",
+      ".edhrec-ja-overlay svg{display:block;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}",
+      ".edhrec-ja-scryfall-link{display:flex;flex:0 0 auto;align-items:center;justify-content:center;width:18px;height:17px;border:1px solid rgba(96,165,250,.32);border-radius:4px;background:rgba(17,24,31,.72);color:#64b5ff;text-decoration:none;box-shadow:none;}",
       ".edhrec-ja-shop-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;flex:1 1 auto;min-width:0;}",
       ".edhrec-ja-shop-link{display:block;min-width:0;overflow:hidden;padding:2px 0;border:1px solid rgba(96,165,250,.28);border-radius:4px;background:rgba(17,24,31,.72);color:#64b5ff;text-align:center;text-decoration:none;font-size:10px;font-weight:750;line-height:1.05;box-shadow:none;}",
       ".edhrec-ja-shop-link:hover{background:rgba(20,74,121,.55);border-color:rgba(125,211,252,.56);color:#dbeafe;}",
-      ".edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-shop-link,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}",
-      ".edhrec-ja-chip-button{flex:0 0 auto;padding:2px 6px;border:1px solid rgba(148,163,184,.32);border-radius:4px;background:rgba(17,24,31,.72);color:#e5e7eb;font-size:10px;font-weight:700;line-height:1.15;box-shadow:none;cursor:pointer;}",
+      ".edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-shop-link,.edhrec-ja-scryfall-link,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease,color .12s ease;}",
+      ".edhrec-ja-chip-button{display:flex;flex:0 0 auto;align-items:center;justify-content:center;width:20px;height:17px;padding:0;border:1px solid rgba(148,163,184,.32);border-radius:4px;background:rgba(17,24,31,.72);color:#e5e7eb;font-size:10px;font-weight:700;line-height:1.15;box-shadow:none;cursor:pointer;}",
+      ".edhrec-ja-chip-button[aria-label='コピーしました']{border-color:rgba(134,239,172,.45);color:#86efac;background:rgba(20,83,45,.45);}",
       ".edhrec-ja-star-button{flex:0 0 auto;min-width:20px;height:17px;padding:0 5px;border:1px solid rgba(245,158,11,.5);border-radius:4px;background:rgba(69,26,3,.42);color:#fcd34d;font-size:12px;font-weight:800;line-height:1;box-shadow:none;cursor:pointer;}",
       ".edhrec-ja-star-button.is-active{background:rgba(180,83,9,.82);border-color:#fbbf24;color:#fff7ed;}",
-      ".edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-shop-link:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,.22);}",
+      ".edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-shop-link:hover,.edhrec-ja-scryfall-link:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,.22);}",
       ".edhrec-ja-dock{position:fixed;right:14px;bottom:14px;z-index:2147483647;font-family:system-ui,sans-serif;}",
       ".edhrec-ja-dock-button{padding:9px 13px;border:1px solid rgba(245,158,11,.45);border-radius:999px;background:linear-gradient(135deg,#fff7ed,#fffbeb);color:#78350f;font-size:13px;font-weight:750;box-shadow:0 12px 34px rgba(15,23,42,.2);cursor:pointer;}",
       ".edhrec-ja-favorites-panel{display:none;width:320px;max-height:46vh;overflow:auto;margin-bottom:10px;padding:12px;border:1px solid rgba(148,163,184,.38);border-radius:12px;background:rgba(255,255,255,.96);color:#0f172a;box-shadow:0 20px 54px rgba(15,23,42,.24);backdrop-filter:blur(10px);font-size:12px;}",

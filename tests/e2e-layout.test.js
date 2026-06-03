@@ -80,13 +80,34 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
   assert.equal(ready.nameButtonCount, 0);
+  assert.deepEqual(ready.copyButtons, [
+    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
+    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
+    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
+    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
+    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
+  ]);
+  assert.deepEqual(ready.scryfallLinks.map((link) => ({
+    text: link.text,
+    aria: link.aria,
+    title: link.title,
+    svgCount: link.svgCount,
+    icon: link.icon
+  })), [
+    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
+    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
+    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
+    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
+    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
+  ]);
+  assert.ok(ready.scryfallLinks.every((link) => /^https:\/\/scryfall\.com\/card\//.test(link.href)));
   assert.ok(ready.overlayHeights.every((height) => height <= 36), `overlay heights: ${ready.overlayHeights.join(",")}`);
   assert.deepEqual(ready.compactControlCounts, [
-    { shops: 5, copies: 1, stars: 1 },
-    { shops: 5, copies: 1, stars: 1 },
-    { shops: 5, copies: 1, stars: 1 },
-    { shops: 5, copies: 1, stars: 1 },
-    { shops: 5, copies: 1, stars: 1 },
+    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
+    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
+    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
+    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
+    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
   ]);
   assert.equal(ready.shopLinkCount, 25);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
@@ -97,7 +118,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.notEqual(ready.wideThumbnailState, "replaced");
   assert.equal(ready.battleThumbnailOverlayCount, 0);
   assert.notEqual(ready.battleThumbnailState, "replaced");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.5"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.6"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -109,6 +130,32 @@ test("layout fixture works in a real browser", async (t) => {
   })()`);
   assert.equal(favoriteState.favoriteCount, 1);
   assert.match(favoriteState.dockText, /お気に入り 1/);
+
+  const copyState = await cdp.evaluate(`(() => new Promise((resolve) => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.resolve() }
+    });
+    const button = document.querySelector(".card-shell .edhrec-ja-chip-button");
+    button.click();
+    setTimeout(() => {
+      const icon = button.querySelector("svg");
+      resolve({
+        text: button.textContent.trim(),
+        aria: button.getAttribute("aria-label"),
+        title: button.title,
+        svgCount: button.querySelectorAll("svg").length,
+        icon: icon ? icon.dataset.edhrecJaIcon : ""
+      });
+    }, 100);
+  }))()`);
+  assert.deepEqual(copyState, {
+    text: "",
+    aria: "コピーしました",
+    title: "コピーしました",
+    svgCount: 1,
+    icon: "check"
+  });
 });
 
 function pageStateExpression() {
@@ -164,8 +211,32 @@ function pageStateExpression() {
       edhrecOverlayBeforeOriginalText: edhrecOriginalText && edhrecMockOverlay ? edhrecMockOverlay.getBoundingClientRect().bottom <= edhrecOriginalText.getBoundingClientRect().top : false,
       edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       nameButtonCount: document.querySelectorAll(".edhrec-ja-name-button").length,
+      copyButtons: overlays.map((overlay) => {
+        const button = overlay.querySelector(".edhrec-ja-chip-button");
+        const icon = button && button.querySelector("svg");
+        return {
+          text: button ? button.textContent.trim() : "",
+          aria: button ? button.getAttribute("aria-label") : "",
+          title: button ? button.title : "",
+          svgCount: button ? button.querySelectorAll("svg").length : 0,
+          icon: icon ? icon.dataset.edhrecJaIcon : ""
+        };
+      }),
+      scryfallLinks: overlays.map((overlay) => {
+        const link = overlay.querySelector(".edhrec-ja-scryfall-link");
+        const icon = link && link.querySelector("svg");
+        return {
+          text: link ? link.textContent.trim() : "",
+          aria: link ? link.getAttribute("aria-label") : "",
+          title: link ? link.title : "",
+          href: link ? link.href : "",
+          svgCount: link ? link.querySelectorAll("svg").length : 0,
+          icon: icon ? icon.dataset.edhrecJaIcon : ""
+        };
+      }),
       overlayHeights: overlays.map((overlay) => Math.ceil(overlay.getBoundingClientRect().height)),
       compactControlCounts: overlays.map((overlay) => ({
+        scryfall: overlay.querySelectorAll(".edhrec-ja-scryfall-link").length,
         shops: overlay.querySelectorAll(".edhrec-ja-shop-link").length,
         copies: overlay.querySelectorAll(".edhrec-ja-chip-button").length,
         stars: overlay.querySelectorAll(".edhrec-ja-star-button").length

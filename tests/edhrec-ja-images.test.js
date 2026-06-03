@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-03\.5/);
+  assert.match(source, /@version\s+2026-06-03\.6/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -29,7 +29,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-03\.5"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-03\.6"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -146,6 +146,9 @@ test("userscript uses modern button and panel styling", () => {
   assert.doesNotMatch(source, /edhrec-ja-name-button/);
   assert.match(source, /edhrec-ja-chip-button/);
   assert.match(source, /edhrec-ja-star-button/);
+  assert.match(source, /edhrec-ja-scryfall-link/);
+  assert.match(source, /function setIconControl/);
+  assert.match(source, /function iconSvg/);
   assert.match(source, /background:rgba\(30,39,47,\.94\)/);
   assert.match(source, /border-radius:4px/);
   assert.match(source, /backdrop-filter:blur/);
@@ -157,9 +160,11 @@ test("userscript avoids special art and offers Japanese-name copy", () => {
   assert.match(source, /borderless/);
   assert.match(source, /showcase\|extendedart/);
   assert.match(source, /copyText\(box\.dataset\.jaLabel\)/);
+  assert.match(source, /setIconControl\(copy, "copy", "カード名をコピー"\)/);
+  assert.match(source, /setIconControl\(copy, ok \? "check" : "x"/);
   assert.match(source, /function fallbackCopyText/);
   assert.match(source, /\.catch\(function \(\) \{\s+return fallbackCopyText\(value\);/);
-  assert.match(source, /コピー/);
+  assert.doesNotMatch(source, /copy\.textContent = ok \? "コピー済み"/);
 });
 
 test("userscript strips Japanese reading annotations before display and copy", () => {

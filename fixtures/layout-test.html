@@ -267,7 +267,7 @@
             return Promise.resolve({
               lang: "en",
               name: key,
-              scryfall_uri: "https://scryfall.com/search?q=" + encodeURIComponent(key),
+              scryfall_uri: "https://scryfall.com/card/mock/" + encodeURIComponent(key.toLowerCase().replace(/\s+/g, "-")),
               image_uris: {
                 normal: cardArt(key, colors[key] || "#334155")
               }
@@ -284,7 +284,7 @@
               layout: key === "Invasion of Zendikar" ? "battle" : "normal",
               name: key,
               printed_name: printedName,
-              scryfall_uri: "https://scryfall.com/search?q=" + encodeURIComponent(key || ""),
+              scryfall_uri: "https://scryfall.com/card/mock/" + encodeURIComponent((key || "").toLowerCase().replace(/\s+/g, "-")),
               image_uris: {
                 normal: cardArt(artLabel, colors[key] || "#334155")
               }
