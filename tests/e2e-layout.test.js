@@ -78,7 +78,9 @@ test("layout fixture works in a real browser", async (t) => {
   assert.deepEqual(ready.commanderAlts, ["The Sixth Doctor", "Susan Foreman"]);
   assert.equal(ready.wideThumbnailOverlayCount, 0);
   assert.notEqual(ready.wideThumbnailState, "replaced");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.2"));
+  assert.equal(ready.battleThumbnailOverlayCount, 0);
+  assert.notEqual(ready.battleThumbnailState, "replaced");
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.3"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -98,8 +100,9 @@ function pageStateExpression() {
     const cards = Array.from(document.querySelectorAll(".card-shell"));
     const overlays = Array.from(document.querySelectorAll(".edhrec-ja-overlay"));
     const images = Array.from(document.querySelectorAll("main img"));
-    const cardishImages = images.filter((img) => !img.closest(".wide-thumbnail"));
+    const cardishImages = images.filter((img) => !img.closest(".wide-thumbnail") && !img.closest(".battle-thumbnail"));
     const wideThumbnail = document.querySelector(".wide-thumbnail");
+    const battleThumbnail = document.querySelector(".battle-thumbnail");
     const metas = Array.from(document.querySelectorAll(".native-meta"));
     const imageOverlapCount = overlays.filter((overlay) => {
       const a = overlay.getBoundingClientRect();
@@ -136,6 +139,8 @@ function pageStateExpression() {
       shopLinkCount: document.querySelectorAll(".edhrec-ja-shop-link").length,
       wideThumbnailOverlayCount: wideThumbnail ? wideThumbnail.querySelectorAll(".edhrec-ja-overlay").length : -1,
       wideThumbnailState: wideThumbnail ? wideThumbnail.querySelector("img").dataset.edhrecJaState || "" : "",
+      battleThumbnailOverlayCount: battleThumbnail ? battleThumbnail.querySelectorAll(".edhrec-ja-overlay").length : -1,
+      battleThumbnailState: battleThumbnail ? battleThumbnail.querySelector("img").dataset.edhrecJaState || "" : "",
       replaced
     };
   })()`;

@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-03\.2/);
+  assert.match(source, /@version\s+2026-06-03\.3/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -29,7 +29,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-03\.2"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-03\.3"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -125,6 +125,15 @@ test("userscript skips non-card-shaped thumbnails", () => {
   assert.match(source, /function isCardLikeImage/);
   assert.match(source, /getBoundingClientRect/);
   assert.match(source, /isCardLikeImage\(img\)/);
+});
+
+test("userscript skips unsupported landscape-oriented Scryfall layouts", () => {
+  assert.match(source, /function isUnsupportedLayout/);
+  assert.match(source, /battle\|planar\|scheme\|vanguard/);
+  assert.match(source, /function canReplaceImage/);
+  assert.match(source, /!isUnsupportedLayout\(hit && hit\.layout\)/);
+  assert.match(source, /layout: card\.layout \|\| ""/);
+  assert.match(source, /img\.dataset\.edhrecJaState = "skipped"/);
 });
 
 test("userscript uses modern button and panel styling", () => {
