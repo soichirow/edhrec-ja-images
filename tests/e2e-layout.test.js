@@ -75,20 +75,29 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.imageOverlapCount, 0);
   assert.equal(ready.nativeMetaOverlapCount, 0);
   assert.equal(ready.edhrecOriginalTextOverlapCount, 0);
-  assert.deepEqual(ready.nativeMetaBeforeOverlay, [true, true, true, true]);
-  assert.equal(ready.edhrecOriginalTextBeforeOverlay, true);
+  assert.deepEqual(ready.overlayBeforeNativeMeta, [true, true, true, true]);
+  assert.equal(ready.edhrecOverlayAfterImage, true);
+  assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
+  assert.equal(ready.nameButtonCount, 0);
+  assert.ok(ready.overlayHeights.every((height) => height <= 36), `overlay heights: ${ready.overlayHeights.join(",")}`);
+  assert.deepEqual(ready.compactControlCounts, [
+    { shops: 5, copies: 1, stars: 1 },
+    { shops: 5, copies: 1, stars: 1 },
+    { shops: 5, copies: 1, stars: 1 },
+    { shops: 5, copies: 1, stars: 1 },
+    { shops: 5, copies: 1, stars: 1 },
+  ]);
   assert.equal(ready.shopLinkCount, 25);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
   assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
   assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
-  assert.deepEqual(ready.cardLabels, ["太陽の指輪", "ファイレクシアの変形者", "剣を鍬に", "対抗呪文"]);
   assert.deepEqual(ready.commanderAlts, ["The Sixth Doctor", "Susan Foreman"]);
   assert.equal(ready.wideThumbnailOverlayCount, 0);
   assert.notEqual(ready.wideThumbnailState, "replaced");
   assert.equal(ready.battleThumbnailOverlayCount, 0);
   assert.notEqual(ready.battleThumbnailState, "replaced");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.4"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.5"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -142,18 +151,25 @@ function pageStateExpression() {
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
-      cardLabels: cards.map((card) => card.querySelector(".edhrec-ja-name-button") && card.querySelector(".edhrec-ja-name-button").textContent),
       imageOverlapCount,
       nativeMetaOverlapCount,
-      nativeMetaBeforeOverlay: cards.map((card) => {
+      overlayBeforeNativeMeta: cards.map((card) => {
         const meta = card.querySelector(".native-meta");
         const overlay = card.querySelector(".edhrec-ja-overlay");
         if (!meta || !overlay) return false;
-        return meta.getBoundingClientRect().bottom <= overlay.getBoundingClientRect().top;
+        return overlay.getBoundingClientRect().bottom <= meta.getBoundingClientRect().top;
       }),
       edhrecOriginalTextOverlapCount,
-      edhrecOriginalTextBeforeOverlay: edhrecOriginalText && edhrecMockOverlay ? edhrecOriginalText.getBoundingClientRect().bottom <= edhrecMockOverlay.getBoundingClientRect().top : false,
+      edhrecOverlayAfterImage: edhrecMockOverlay ? document.querySelector(".edhrec-card-mock .CardImage_container__mock").getBoundingClientRect().bottom <= edhrecMockOverlay.getBoundingClientRect().top : false,
+      edhrecOverlayBeforeOriginalText: edhrecOriginalText && edhrecMockOverlay ? edhrecMockOverlay.getBoundingClientRect().bottom <= edhrecOriginalText.getBoundingClientRect().top : false,
       edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
+      nameButtonCount: document.querySelectorAll(".edhrec-ja-name-button").length,
+      overlayHeights: overlays.map((overlay) => Math.ceil(overlay.getBoundingClientRect().height)),
+      compactControlCounts: overlays.map((overlay) => ({
+        shops: overlay.querySelectorAll(".edhrec-ja-shop-link").length,
+        copies: overlay.querySelectorAll(".edhrec-ja-chip-button").length,
+        stars: overlay.querySelectorAll(".edhrec-ja-star-button").length
+      })),
       shopLabels: firstShopLinks.map((link) => link.textContent),
       shopHrefs: firstShopLinks.map((link) => link.href),
       shopLinkCount: document.querySelectorAll(".edhrec-ja-shop-link").length,

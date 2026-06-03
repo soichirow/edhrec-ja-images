@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-03.4
+// @version      2026-06-03.5
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,7 +21,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-03.4";
+  const SCRIPT_VERSION = "2026-06-03.5";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -378,89 +378,63 @@
     injectStyles();
     prepareOverlayHost(scope);
     let box = scope.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
-    let actionRow;
     let shopRow;
-    let label;
     let copy;
     let favorite;
     if (!box) {
       box = document.createElement("span");
       box.dataset.edhrecJaBox = englishName;
       box.className = "edhrec-ja-overlay";
-      actionRow = document.createElement("span");
-      actionRow.className = "edhrec-ja-action-row";
-      shopRow = document.createElement("span");
-      shopRow.className = "edhrec-ja-shop-row";
-      label = document.createElement("button");
-      label.type = "button";
-      label.className = "edhrec-ja-name-button";
-      label.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        window.open(box.dataset.scryfall, "_blank", "noopener,noreferrer");
-      });
-      copy = document.createElement("button");
-      copy.type = "button";
-      copy.textContent = "コピー";
-      copy.className = "edhrec-ja-chip-button";
-      copy.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        copyText(box.dataset.jaLabel).then(function (ok) {
-          copy.textContent = ok ? "コピー済み" : "失敗";
-          setTimeout(function () {
-            copy.textContent = "コピー";
-          }, 1200);
-        });
-      });
-      favorite = document.createElement("button");
-      favorite.type = "button";
-      favorite.title = "お気に入り";
-      favorite.className = "edhrec-ja-star-button";
-      favorite.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleFavorite({
-          english: box.dataset.englishName,
-          label: box.dataset.jaLabel,
-          scryfall: box.dataset.scryfall,
-          src: box.dataset.imageSrc,
-        });
-        updateFavoriteButton(favorite, box.dataset.englishName);
-        renderFavorites();
-      });
-      actionRow.appendChild(label);
-      actionRow.appendChild(copy);
-      actionRow.appendChild(favorite);
-      box.appendChild(actionRow);
-      box.appendChild(shopRow);
-    } else {
-      actionRow = box.querySelector(".edhrec-ja-action-row");
-      shopRow = box.querySelector(".edhrec-ja-shop-row");
-      label = box.querySelector(".edhrec-ja-name-button");
-      copy = box.querySelector(".edhrec-ja-chip-button");
-      favorite = box.querySelector("button[title='お気に入り']");
-      if (!actionRow) {
-        actionRow = document.createElement("span");
-        actionRow.className = "edhrec-ja-action-row";
-        if (label) actionRow.appendChild(label);
-        if (copy) actionRow.appendChild(copy);
-        if (favorite) actionRow.appendChild(favorite);
-        box.insertBefore(actionRow, box.firstChild);
-      }
-      if (!shopRow) {
-        shopRow = document.createElement("span");
-        shopRow.className = "edhrec-ja-shop-row";
-        box.appendChild(shopRow);
-      }
     }
+    box.textContent = "";
+    shopRow = document.createElement("span");
+    shopRow.className = "edhrec-ja-shop-row";
+    copy = document.createElement("button");
+    copy.type = "button";
+    copy.textContent = "コピー";
+    copy.className = "edhrec-ja-chip-button";
+    copy.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      copyText(box.dataset.jaLabel).then(function (ok) {
+        copy.textContent = ok ? "コピー済み" : "失敗";
+        setTimeout(function () {
+          copy.textContent = "コピー";
+        }, 1200);
+      });
+    });
+    favorite = document.createElement("button");
+    favorite.type = "button";
+    favorite.title = "お気に入り";
+    favorite.className = "edhrec-ja-star-button";
+    favorite.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFavorite({
+        english: box.dataset.englishName,
+        label: box.dataset.jaLabel,
+        scryfall: box.dataset.scryfall,
+        src: box.dataset.imageSrc,
+      });
+      updateFavoriteButton(favorite, box.dataset.englishName);
+      renderFavorites();
+    });
+    box.appendChild(shopRow);
+    box.appendChild(copy);
+    box.appendChild(favorite);
     box.dataset.englishName = englishName;
     box.dataset.jaLabel = hit.label;
     box.dataset.scryfall = hit.scryfall;
     box.dataset.imageSrc = hit.src;
-    label.textContent = hit.label;
+    box.title = englishName + " / " + hit.label;
     renderShopLinks(shopRow, englishName, hit.label);
     insertControlBox(host, img, box);
+    separateFromFollowingContent(box);
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(function () {
+        separateFromFollowingContent(box);
+      });
+    }
     updateFavoriteButton(favorite, englishName);
   }
 
@@ -497,6 +471,15 @@
     return Boolean(node && node.querySelector && node.querySelector('[class*="CardLabel"],[class*="CardPrice"],[class*="Card_nameWrapper"]'));
   }
 
+  function edhrecImageContainer(host, cardContainer) {
+    let node = host;
+    while (node && node !== cardContainer) {
+      if (/\bCardImage_container/.test(String(node.className || ""))) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
   function metadataSiblingAfter(host) {
     let sibling = host && host.nextElementSibling;
     let last = null;
@@ -513,19 +496,32 @@
     if (!host || !img || !box || host === img) return;
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) {
-      if (box.parentNode === cardContainer && box === cardContainer.lastElementChild) return;
-      cardContainer.appendChild(box);
+      const imageContainer = edhrecImageContainer(host, cardContainer);
+      const reference = imageContainer && imageContainer.parentNode === cardContainer ? imageContainer.nextSibling : cardContainer.firstChild;
+      if (box.parentNode === cardContainer && box === reference) return;
+      cardContainer.insertBefore(box, reference);
       return;
     }
-    const after = metadataSiblingAfter(host);
-    if (after && after.parentNode) {
-      if (after.nextSibling === box) return;
-      after.parentNode.insertBefore(box, after.nextSibling);
+    const before = metadataSiblingAfter(host);
+    if (before && before.parentNode) {
+      if (before.previousSibling === box) return;
+      before.parentNode.insertBefore(box, before);
       return;
     }
     const reference = img.nextSibling;
     if (reference === box) return;
     host.insertBefore(box, reference);
+  }
+
+  function separateFromFollowingContent(box) {
+    const next = box && box.nextElementSibling;
+    let overlap;
+    if (!next || !box.getBoundingClientRect || !next.getBoundingClientRect) return;
+    box.style.marginBottom = "";
+    overlap = Math.ceil(box.getBoundingClientRect().bottom - next.getBoundingClientRect().top);
+    if (overlap > 0) {
+      box.style.marginBottom = overlap + 2 + "px";
+    }
   }
 
   function fallbackCopyText(value) {
@@ -746,18 +742,15 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      ".edhrec-ja-overlay{display:flex;flex-direction:column;gap:4px;box-sizing:border-box;width:100%;margin:0;padding:6px 7px;border-top:1px solid rgba(148,163,184,.28);border-bottom:1px solid rgba(15,23,42,.08);background:linear-gradient(135deg,rgba(248,250,252,.98),rgba(226,232,240,.96));color:#0f172a;font-size:11px;line-height:1.2;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);pointer-events:auto;}",
-      ".edhrec-ja-action-row{display:flex;align-items:center;gap:5px;width:100%;min-width:0;}",
-      ".edhrec-ja-shop-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;width:100%;}",
-      ".edhrec-ja-shop-link{display:block;min-width:0;overflow:hidden;padding:3px 0;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#0369a1;text-align:center;text-decoration:none;font-size:10px;font-weight:800;line-height:1.1;box-shadow:0 1px 2px rgba(15,23,42,.08);}",
-      ".edhrec-ja-shop-link:hover{background:#e0f2fe;border-color:#7dd3fc;color:#075985;}",
-      ".edhrec-ja-name-button{min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:3px 7px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#0f172a;text-align:left;text-decoration:none;font:inherit;font-weight:700;line-height:1.25;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08);}",
-      ".edhrec-ja-name-button:hover{background:#eff6ff;border-color:#93c5fd;}",
-      ".edhrec-ja-name-button,.edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-shop-link,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}",
-      ".edhrec-ja-chip-button{flex:0 0 auto;padding:3px 8px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#1e293b;font-size:11px;font-weight:650;line-height:1.25;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}",
-      ".edhrec-ja-star-button{flex:0 0 auto;min-width:25px;height:22px;padding:0 6px;border:1px solid #fbbf24;border-radius:999px;background:#fffbeb;color:#92400e;font-size:13px;font-weight:800;line-height:1;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}",
-      ".edhrec-ja-star-button.is-active{background:linear-gradient(135deg,#f59e0b,#facc15);border-color:#fde68a;color:#451a03;}",
-      ".edhrec-ja-name-button:hover,.edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-shop-link:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(15,23,42,.18);}",
+      ".edhrec-ja-overlay{display:flex;flex-direction:row;align-items:center;gap:4px;box-sizing:border-box;width:100%;margin:0;padding:3px 5px;border-top:1px solid rgba(96,165,250,.22);border-bottom:1px solid rgba(0,0,0,.28);background:rgba(30,39,47,.94);color:#bfdbfe;font-size:10px;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);pointer-events:auto;}",
+      ".edhrec-ja-shop-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;flex:1 1 auto;min-width:0;}",
+      ".edhrec-ja-shop-link{display:block;min-width:0;overflow:hidden;padding:2px 0;border:1px solid rgba(96,165,250,.28);border-radius:4px;background:rgba(17,24,31,.72);color:#64b5ff;text-align:center;text-decoration:none;font-size:10px;font-weight:750;line-height:1.05;box-shadow:none;}",
+      ".edhrec-ja-shop-link:hover{background:rgba(20,74,121,.55);border-color:rgba(125,211,252,.56);color:#dbeafe;}",
+      ".edhrec-ja-chip-button,.edhrec-ja-star-button,.edhrec-ja-shop-link,.edhrec-ja-panel-button,.edhrec-ja-remove-button,.edhrec-ja-dock-button{appearance:none;font:inherit;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease;}",
+      ".edhrec-ja-chip-button{flex:0 0 auto;padding:2px 6px;border:1px solid rgba(148,163,184,.32);border-radius:4px;background:rgba(17,24,31,.72);color:#e5e7eb;font-size:10px;font-weight:700;line-height:1.15;box-shadow:none;cursor:pointer;}",
+      ".edhrec-ja-star-button{flex:0 0 auto;min-width:20px;height:17px;padding:0 5px;border:1px solid rgba(245,158,11,.5);border-radius:4px;background:rgba(69,26,3,.42);color:#fcd34d;font-size:12px;font-weight:800;line-height:1;box-shadow:none;cursor:pointer;}",
+      ".edhrec-ja-star-button.is-active{background:rgba(180,83,9,.82);border-color:#fbbf24;color:#fff7ed;}",
+      ".edhrec-ja-chip-button:hover,.edhrec-ja-star-button:hover,.edhrec-ja-shop-link:hover,.edhrec-ja-panel-button:hover,.edhrec-ja-remove-button:hover,.edhrec-ja-dock-button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,.22);}",
       ".edhrec-ja-dock{position:fixed;right:14px;bottom:14px;z-index:2147483647;font-family:system-ui,sans-serif;}",
       ".edhrec-ja-dock-button{padding:9px 13px;border:1px solid rgba(245,158,11,.45);border-radius:999px;background:linear-gradient(135deg,#fff7ed,#fffbeb);color:#78350f;font-size:13px;font-weight:750;box-shadow:0 12px 34px rgba(15,23,42,.2);cursor:pointer;}",
       ".edhrec-ja-favorites-panel{display:none;width:320px;max-height:46vh;overflow:auto;margin-bottom:10px;padding:12px;border:1px solid rgba(148,163,184,.38);border-radius:12px;background:rgba(255,255,255,.96);color:#0f172a;box-shadow:0 20px 54px rgba(15,23,42,.24);backdrop-filter:blur(10px);font-size:12px;}",
