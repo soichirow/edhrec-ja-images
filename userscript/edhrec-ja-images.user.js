@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-03.6
+// @version      2026-06-04.1
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,10 +21,11 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-03.6";
+  const SCRIPT_VERSION = "2026-06-04.1";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
+  const FALLBACK_DELAY = 900;
   const MAX_PREFETCH_PER_SCAN = 80;
   const MAX_IMAGE_PRELOAD_PER_SCAN = 40;
   const MAX_CACHE_ENTRIES = 800;
@@ -141,20 +142,49 @@
     return cache[key].value;
   }
 
-  function getJapanese(name) {
+  function getJapanese(name, options) {
+    options = options || {};
+    const fallback = options.fallback !== false;
     const key = name.toLowerCase();
+    const jaPendingKey = "ja:" + key;
+    const pendingKey = fallback ? key : jaPendingKey;
     if (fresh(key)) return Promise.resolve(cache[key].value);
-    if (pending[key]) return pending[key];
-    pending[key] = searchRegularPrint(name, "ja").then(function (found) {
-      return found || searchRegularPrint(name, "en");
-    }).then(function (found) {
-      return remember(key, found ? hitFromCard(found, name) : null);
+    if (!fallback && pending[key]) return pending[key];
+    if (pending[pendingKey]) return pending[pendingKey];
+    if (fallback && pending[jaPendingKey]) {
+      pending[pendingKey] = pending[jaPendingKey].then(function (hit) {
+        if (hit) return remember(key, hit);
+        return fallbackEnglish(name).then(function (found) {
+          return remember(key, found);
+        });
+      }).catch(function () {
+        return null;
+      }).finally(function () {
+        delete pending[pendingKey];
+      });
+      return pending[pendingKey];
+    }
+    pending[pendingKey] = searchRegularPrint(name, "ja").then(function (found) {
+      if (found) return hitFromCard(found, name);
+      if (!fallback) return null;
+      return fallbackEnglish(name);
+    }).then(function (hit) {
+      if (fallback || hit) return remember(key, hit);
+      return hit;
     }).catch(function () {
       return null;
     }).finally(function () {
-      delete pending[key];
+      delete pending[pendingKey];
     });
-    return pending[key];
+    return pending[pendingKey];
+  }
+
+  function fallbackEnglish(name) {
+    return delay(FALLBACK_DELAY).then(function () {
+      return searchRegularPrint(name, "en");
+    }).then(function (found) {
+      return found ? hitFromCard(found, name) : null;
+    });
   }
 
   function getByScryfallId(id) {
@@ -164,7 +194,7 @@
     if (pending[key]) return pending[key];
     pending[key] = throttledApiJson("https://api.scryfall.com/cards/" + encodeURIComponent(id)).then(function (card) {
       if (!card || !card.name) return null;
-      return getJapanese(card.name).then(function (hit) {
+      return getJapanese(card.name, { fallback: true }).then(function (hit) {
         return hit || hitFromCard(card, card.name);
       });
     }).then(function (hit) {
@@ -293,7 +323,7 @@
       if (!name) return;
       link.dataset.edhrecJaPrefetch = "1";
       count += 1;
-      getJapanese(name).then(function (hit) {
+      getJapanese(name, { fallback: false }).then(function (hit) {
         if (!hit || !hit.src || imageCount >= MAX_IMAGE_PRELOAD_PER_SCAN) return;
         imageCount += 1;
         preloadImage(hit.src);
@@ -311,7 +341,7 @@
     const scryfallId = scryfallIdOfImage(img);
     if (!name && !scryfallId) return;
     img.dataset.edhrecJaState = "pending";
-    (name ? getJapanese(name) : getByScryfallId(scryfallId)).then(function (hit) {
+    (name ? getJapanese(name, { fallback: true }) : getByScryfallId(scryfallId)).then(function (hit) {
       if (!hit) {
         img.dataset.edhrecJaState = "missing";
         return;
@@ -738,9 +768,20 @@
   function scan() {
     injectStyles();
     ensureFavoriteDock();
-    prefetchLinks();
     Array.prototype.forEach.call(document.querySelectorAll(imageSelector), replaceOne);
+    schedulePrefetch();
     updateInlineFavoriteButtons();
+  }
+
+  function schedulePrefetch() {
+    const run = function () {
+      prefetchLinks();
+    };
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(run, { timeout: 1500 });
+      return;
+    }
+    setTimeout(run, 250);
   }
 
   function updateInlineFavoriteButtons() {
@@ -796,7 +837,7 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      ".edhrec-ja-overlay{display:flex;flex-direction:row;align-items:center;gap:4px;box-sizing:border-box;width:100%;margin:0;padding:3px 5px;border-top:1px solid rgba(96,165,250,.22);border-bottom:1px solid rgba(0,0,0,.28);background:rgba(30,39,47,.94);color:#bfdbfe;font-size:10px;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);pointer-events:auto;}",
+      ".edhrec-ja-overlay{display:flex;flex-direction:row;align-items:center;gap:4px;box-sizing:border-box;width:100%;margin:4px 0 0;padding:3px 5px;border-top:1px solid rgba(96,165,250,.22);border-bottom:1px solid rgba(0,0,0,.28);background:rgba(30,39,47,.94);color:#bfdbfe;font-size:10px;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);pointer-events:auto;}",
       ".edhrec-ja-overlay svg{display:block;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}",
       ".edhrec-ja-scryfall-link{display:flex;flex:0 0 auto;align-items:center;justify-content:center;width:18px;height:17px;border:1px solid rgba(96,165,250,.32);border-radius:4px;background:rgba(17,24,31,.72);color:#64b5ff;text-decoration:none;box-shadow:none;}",
       ".edhrec-ja-shop-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;flex:1 1 auto;min-width:0;}",

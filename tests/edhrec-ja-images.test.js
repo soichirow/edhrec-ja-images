@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-03\.6/);
+  assert.match(source, /@version\s+2026-06-04\.1/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -29,7 +29,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-03\.6"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-04\.1"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -75,15 +75,30 @@ test("userscript prefetches card links and renders Japanese Scryfall links", () 
 test("userscript falls back to English Scryfall cards when Japanese prints are missing", () => {
   assert.match(source, /searchRegularPrint\(name, "ja"\)/);
   assert.match(source, /searchRegularPrint\(name, "en"\)/);
+  assert.match(source, /const FALLBACK_DELAY = 900/);
+  assert.match(source, /delay\(FALLBACK_DELAY\)\.then/);
   assert.match(source, /function hitFromCard/);
   assert.match(source, /CACHE_KEY = "edhrec-ja-image-cache-v2"/);
+});
+
+test("userscript prioritizes visible cards and keeps prefetch lightweight", () => {
+  const scanMatch = source.match(/function scan\(\) \{([\s\S]*?)\n  \}/);
+  assert.ok(scanMatch, "scan function should exist");
+  assert.ok(
+    scanMatch[1].indexOf("document.querySelectorAll(imageSelector)") < scanMatch[1].indexOf("schedulePrefetch()"),
+    "visible image replacement should be scheduled before background prefetch"
+  );
+  assert.match(source, /function schedulePrefetch/);
+  assert.match(source, /requestIdleCallback/);
+  assert.match(source, /getJapanese\(name, \{ fallback: false \}\)/);
+  assert.match(source, /getJapanese\(name, \{ fallback: true \}\)/);
 });
 
 test("userscript can resolve unlinked commander images from Scryfall image IDs", () => {
   assert.match(source, /function scryfallIdOfImage/);
   assert.match(source, /function getByScryfallId/);
   assert.match(source, /api\.scryfall\.com\/cards\//);
-  assert.match(source, /name \? getJapanese\(name\) : getByScryfallId\(scryfallId\)/);
+  assert.match(source, /name \? getJapanese\(name, \{ fallback: true \}\) : getByScryfallId\(scryfallId\)/);
 });
 
 test("userscript preloads Japanese image URLs while leaving original images visible", () => {
@@ -150,6 +165,7 @@ test("userscript uses modern button and panel styling", () => {
   assert.match(source, /function setIconControl/);
   assert.match(source, /function iconSvg/);
   assert.match(source, /background:rgba\(30,39,47,\.94\)/);
+  assert.match(source, /margin:4px 0 0/);
   assert.match(source, /border-radius:4px/);
   assert.match(source, /backdrop-filter:blur/);
   assert.match(source, /transition:transform/);

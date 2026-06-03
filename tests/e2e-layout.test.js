@@ -77,6 +77,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.edhrecOriginalTextOverlapCount, 0);
   assert.deepEqual(ready.overlayBeforeNativeMeta, [true, true, true, true]);
   assert.equal(ready.edhrecOverlayAfterImage, true);
+  assert.ok(ready.edhrecOverlayImageGap >= 4, `image/control gap: ${ready.edhrecOverlayImageGap}`);
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
   assert.equal(ready.nameButtonCount, 0);
@@ -118,7 +119,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.notEqual(ready.wideThumbnailState, "replaced");
   assert.equal(ready.battleThumbnailOverlayCount, 0);
   assert.notEqual(ready.battleThumbnailState, "replaced");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.6"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.1"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -169,6 +170,7 @@ function pageStateExpression() {
     const battleThumbnail = document.querySelector(".battle-thumbnail");
     const metas = Array.from(document.querySelectorAll(".native-meta"));
     const edhrecOriginalText = document.querySelector(".edhrec-original-text");
+    const edhrecMockImageContainer = document.querySelector(".edhrec-card-mock .CardImage_container__mock");
     const edhrecMockOverlay = document.querySelector(".edhrec-card-mock .edhrec-ja-overlay");
     const overlaps = (one, two) => {
       if (!one || !two) return false;
@@ -207,7 +209,8 @@ function pageStateExpression() {
         return overlay.getBoundingClientRect().bottom <= meta.getBoundingClientRect().top;
       }),
       edhrecOriginalTextOverlapCount,
-      edhrecOverlayAfterImage: edhrecMockOverlay ? document.querySelector(".edhrec-card-mock .CardImage_container__mock").getBoundingClientRect().bottom <= edhrecMockOverlay.getBoundingClientRect().top : false,
+      edhrecOverlayAfterImage: edhrecMockOverlay && edhrecMockImageContainer ? edhrecMockImageContainer.getBoundingClientRect().bottom <= edhrecMockOverlay.getBoundingClientRect().top : false,
+      edhrecOverlayImageGap: edhrecMockOverlay && edhrecMockImageContainer ? Math.round(edhrecMockOverlay.getBoundingClientRect().top - edhrecMockImageContainer.getBoundingClientRect().bottom) : -1,
       edhrecOverlayBeforeOriginalText: edhrecOriginalText && edhrecMockOverlay ? edhrecMockOverlay.getBoundingClientRect().bottom <= edhrecOriginalText.getBoundingClientRect().top : false,
       edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       nameButtonCount: document.querySelectorAll(".edhrec-ja-name-button").length,
