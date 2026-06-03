@@ -60,17 +60,25 @@ test("layout fixture works in a real browser", async (t) => {
   await cdp.send("Page.enable");
   await cdp.send("Page.reload", { ignoreCache: true });
 
+  let lastState = null;
   const ready = await poll(async () => {
     const state = await cdp.evaluate(pageStateExpression());
+    lastState = state;
     return state.ready ? state : null;
-  }, 6000);
+  }, 6000).catch((error) => {
+    error.message += `\nLast page state: ${JSON.stringify(lastState)}`;
+    throw error;
+  });
 
   assert.equal(ready.commanderOverlayCount, 0);
   assert.deepEqual(ready.cardOverlays, [1, 1, 1, 1]);
   assert.equal(ready.imageOverlapCount, 0);
   assert.equal(ready.nativeMetaOverlapCount, 0);
+  assert.equal(ready.edhrecOriginalTextOverlapCount, 0);
   assert.deepEqual(ready.nativeMetaBeforeOverlay, [true, true, true, true]);
-  assert.equal(ready.shopLinkCount, 20);
+  assert.equal(ready.edhrecOriginalTextBeforeOverlay, true);
+  assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
+  assert.equal(ready.shopLinkCount, 25);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
   assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
   assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
@@ -80,7 +88,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.notEqual(ready.wideThumbnailState, "replaced");
   assert.equal(ready.battleThumbnailOverlayCount, 0);
   assert.notEqual(ready.battleThumbnailState, "replaced");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.3"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-03.4"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -104,6 +112,14 @@ function pageStateExpression() {
     const wideThumbnail = document.querySelector(".wide-thumbnail");
     const battleThumbnail = document.querySelector(".battle-thumbnail");
     const metas = Array.from(document.querySelectorAll(".native-meta"));
+    const edhrecOriginalText = document.querySelector(".edhrec-original-text");
+    const edhrecMockOverlay = document.querySelector(".edhrec-card-mock .edhrec-ja-overlay");
+    const overlaps = (one, two) => {
+      if (!one || !two) return false;
+      const a = one.getBoundingClientRect();
+      const b = two.getBoundingClientRect();
+      return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+    };
     const imageOverlapCount = overlays.filter((overlay) => {
       const a = overlay.getBoundingClientRect();
       return images.some((img) => {
@@ -118,10 +134,11 @@ function pageStateExpression() {
         return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
       });
     }).length;
+    const edhrecOriginalTextOverlapCount = edhrecMockOverlay && edhrecOriginalText && overlaps(edhrecMockOverlay, edhrecOriginalText) ? 1 : 0;
     const replaced = cardishImages.map((img) => img.dataset.edhrecJaState || "");
     const firstShopLinks = Array.from(document.querySelectorAll(".card-shell:first-of-type .edhrec-ja-shop-link"));
     return {
-      ready: cardishImages.length === 6 && replaced.every((state) => state === "replaced") && overlays.length >= 4,
+      ready: cardishImages.length === 7 && replaced.every((state) => state === "replaced") && overlays.length >= 5,
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
@@ -134,6 +151,9 @@ function pageStateExpression() {
         if (!meta || !overlay) return false;
         return meta.getBoundingClientRect().bottom <= overlay.getBoundingClientRect().top;
       }),
+      edhrecOriginalTextOverlapCount,
+      edhrecOriginalTextBeforeOverlay: edhrecOriginalText && edhrecMockOverlay ? edhrecOriginalText.getBoundingClientRect().bottom <= edhrecMockOverlay.getBoundingClientRect().top : false,
+      edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       shopLabels: firstShopLinks.map((link) => link.textContent),
       shopHrefs: firstShopLinks.map((link) => link.href),
       shopLinkCount: document.querySelectorAll(".edhrec-ja-shop-link").length,

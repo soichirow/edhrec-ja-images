@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-03.3
+// @version      2026-06-03.4
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,7 +21,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-03.3";
+  const SCRIPT_VERSION = "2026-06-03.4";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -475,7 +475,26 @@
   }
 
   function controlScope(host) {
+    const cardContainer = edhrecCardContainer(host);
+    if (cardContainer) return cardContainer;
     return metadataSiblingAfter(host) ? host.parentNode : host;
+  }
+
+  function edhrecCardContainer(host) {
+    let node = host;
+    while (node && node !== document.body) {
+      if (looksLikeEdhrecCardContainer(node) && hasEdhrecCardText(node)) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function looksLikeEdhrecCardContainer(node) {
+    return /\bCard_container/.test(String(node && node.className || ""));
+  }
+
+  function hasEdhrecCardText(node) {
+    return Boolean(node && node.querySelector && node.querySelector('[class*="CardLabel"],[class*="CardPrice"],[class*="Card_nameWrapper"]'));
   }
 
   function metadataSiblingAfter(host) {
@@ -492,6 +511,12 @@
 
   function insertControlBox(host, img, box) {
     if (!host || !img || !box || host === img) return;
+    const cardContainer = edhrecCardContainer(host);
+    if (cardContainer) {
+      if (box.parentNode === cardContainer && box === cardContainer.lastElementChild) return;
+      cardContainer.appendChild(box);
+      return;
+    }
     const after = metadataSiblingAfter(host);
     if (after && after.parentNode) {
       if (after.nextSibling === box) return;
