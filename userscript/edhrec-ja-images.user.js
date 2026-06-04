@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-04.6
+// @version      2026-06-04.7
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -22,7 +22,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-04.6";
+  const SCRIPT_VERSION = "2026-06-04.7";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -495,6 +495,14 @@
     injectStyles();
     prepareOverlayHost(scope);
     let box = scope.querySelector('[data-edhrec-ja-box="' + cssEscape(englishName) + '"]');
+    if (!box) {
+      box = existingControlBox(scope);
+      if (box) {
+        pruneControlBoxes(scope, box);
+        if (!controlBoxLooksPlaced(box)) insertControlBox(host, img, box);
+        return;
+      }
+    }
     let scryfall;
     let shopRow;
     let copy;
@@ -557,6 +565,7 @@
     box.title = englishName + " / " + hit.label;
     renderShopLinks(shopRow, englishName, hit.label);
     insertControlBox(host, img, box);
+    pruneControlBoxes(scope, box);
     separateFromFollowingContent(box);
     if (window.requestAnimationFrame) {
       window.requestAnimationFrame(function () {
@@ -564,6 +573,21 @@
       });
     }
     updateFavoriteButton(favorite, englishName);
+  }
+
+  function existingControlBox(scope) {
+    return scope && scope.querySelector ? scope.querySelector(".edhrec-ja-overlay") : null;
+  }
+
+  function pruneControlBoxes(scope, keep) {
+    if (!scope || !scope.querySelectorAll) return;
+    Array.prototype.forEach.call(scope.querySelectorAll(".edhrec-ja-overlay"), function (box) {
+      if (box !== keep) box.remove();
+    });
+  }
+
+  function controlBoxLooksPlaced(box) {
+    return Boolean(box && box.previousElementSibling && containsImage(box.previousElementSibling));
   }
 
   function setIconControl(control, icon, label) {

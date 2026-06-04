@@ -274,7 +274,7 @@
       <article class="card-shell"><a class="card" href="/cards/phyrexian-metamorph"><img alt="Phyrexian Metamorph" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000002.jpg"><span class="name">Phyrexian Metamorph</span></a><div class="native-meta"><span>€0.36</span><strong>61%</strong><span>synergy</span></div></article>
       <article class="card-shell"><a class="card" href="/cards/swords-to-plowshares"><img alt="Swords to Plowshares" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000003.jpg"><span class="name">Swords to Plowshares</span></a><div class="native-meta"><span>€0.16</span><strong>60%</strong><span>synergy</span></div></article>
       <article class="card-shell"><a class="card" href="/cards/counterspell"><img alt="Counterspell" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000004.jpg"><span class="name">Counterspell</span></a><div class="native-meta"><span>€0.23</span><strong>61%</strong><span>inclusion</span></div></article>
-      <article class="card-shell back-face-card"><a class="card" href="/cards/delver-of-secrets"><img alt="Delver of Secrets // Insectile Aberration" src="https://cards.scryfall.io/normal/back/1/1/11111111-1111-1111-1111-111111111111.jpg"><span class="name">Insectile Aberration</span></a><div class="native-meta"><span>€0.10</span><strong>48%</strong><span>synergy</span></div></article>
+      <article class="card-shell back-face-card"><a class="card" href="/cards/insectile-aberration"><img alt="Insectile Aberration" src="https://cards.scryfall.io/normal/back/1/1/11111111-1111-1111-1111-111111111111.jpg"><span class="name">Insectile Aberration</span></a><a class="card" href="/cards/delver-of-secrets"><img alt="Delver of Secrets" src="https://cards.scryfall.io/normal/front/2/2/22222222-2222-2222-2222-222222222222.jpg"><span class="name">Delver of Secrets</span></a><div class="native-meta"><span>€0.10</span><strong>48%</strong><span>synergy</span></div></article>
     </div>
     <section class="edhrec-mock-section" aria-label="EDHREC card module mock">
       <article class="Card_container__mock edhrec-card-mock">
@@ -344,13 +344,15 @@
         "The Sixth Doctor": "The Sixth Doctor",
         "Susan Foreman": "Susan Foreman"
       };
+      var delverCard = {
+        name: "Delver of Secrets // Insectile Aberration",
+        faces: ["Delver of Secrets", "Insectile Aberration"],
+        printed: ["秘密を掘り下げる者", "昆虫の逸脱者"],
+        colors: ["#1d4ed8", "#166534"]
+      };
       var doubleFaced = {
-        "Insectile Aberration": {
-          name: "Delver of Secrets // Insectile Aberration",
-          faces: ["Delver of Secrets", "Insectile Aberration"],
-          printed: ["秘密を掘り下げる者", "昆虫の逸脱者"],
-          colors: ["#1d4ed8", "#166534"]
-        }
+        "Delver of Secrets": delverCard,
+        "Insectile Aberration": delverCard
       };
       var colors = {
         "The Sixth Doctor": "#334155",
