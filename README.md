@@ -39,7 +39,7 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 現在のバージョン:
 
 ```text
-2026-06-04.3
+2026-06-04.4
 ```
 
 ## できること
@@ -83,7 +83,7 @@ Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
 - Chrome の Console に次の表示があるか確認する
 
 ```text
-[EDHREC JA Images] version 2026-06-04.3
+[EDHREC JA Images] version 2026-06-04.4
 ```
 
 一部のカードは、日本語版画像が Scryfall にないことがあります。その場合は英語画像のまま、または英語通常版になります。

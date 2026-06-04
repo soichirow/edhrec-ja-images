@@ -124,6 +124,29 @@
       background: #e2e8f0;
     }
 
+    .edhrec-card-mock-lazy .lazyload-wrapper {
+      position: relative;
+    }
+
+    .edhrec-card-mock-lazy .lazyload-wrapper a {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .edhrec-card-mock-lazy .lazyload-wrapper img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 488 / 680;
+      object-fit: cover;
+      background: #e2e8f0;
+    }
+
+    .Card_nameWrapper__mock {
+      height: 0;
+      overflow: hidden;
+    }
+
     .CardLabel_container__mock {
       position: relative;
       z-index: 2;
@@ -203,6 +226,13 @@
           <a href="/cards/lightning-bolt" aria-label="Lightning Bolt"><img alt="Lightning Bolt" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000005.jpg"></a>
         </div>
         <div class="CardLabel_container__mock edhrec-original-text"><span>€0.18</span> <strong>72%</strong> synergy</div>
+      </article>
+      <article class="Card_container__mock edhrec-card-mock-lazy">
+        <div class="Card_nameWrapper__mock">Lightning Bolt</div>
+        <div class="lazyload-wrapper">
+          <a href="/cards/lightning-bolt" aria-label="Lightning Bolt"><img alt="Lightning Bolt" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000006.jpg"></a>
+        </div>
+        <div class="CardLabel_container__mock edhrec-lazy-original-text"><span>€0.18</span> <strong>72%</strong> synergy</div>
       </article>
     </section>
     <aside class="wide-thumbnails" aria-label="Non-card-shaped thumbnails">

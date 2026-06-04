@@ -81,8 +81,11 @@ test("layout fixture works in a real browser", async (t) => {
   assert.ok(ready.edhrecOverlayImageGap >= 4, `image/control gap: ${ready.edhrecOverlayImageGap}`);
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
+  assert.equal(ready.edhrecLazyOverlayAfterImage, true);
+  assert.equal(ready.edhrecLazyOverlayBeforeOriginalText, true);
+  assert.equal(ready.edhrecLazyOverlayParentIsCardContainer, true);
   assert.equal(ready.nameButtonCount, 0);
-  assert.deepEqual(ready.copyButtons, Array.from({ length: 6 }, () => (
+  assert.deepEqual(ready.copyButtons, Array.from({ length: 7 }, () => (
     { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" }
   )));
   assert.deepEqual(ready.scryfallLinks.map((link) => ({
@@ -91,15 +94,15 @@ test("layout fixture works in a real browser", async (t) => {
     title: link.title,
     svgCount: link.svgCount,
     icon: link.icon
-  })), Array.from({ length: 6 }, () => (
+  })), Array.from({ length: 7 }, () => (
     { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" }
   )));
   assert.ok(ready.scryfallLinks.every((link) => /^https:\/\/scryfall\.com\/card\//.test(link.href)));
   assert.ok(ready.overlayHeights.every((height) => height <= 36), `overlay heights: ${ready.overlayHeights.join(",")}`);
-  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 6 }, () => (
+  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 7 }, () => (
     { scryfall: 1, shops: 5, copies: 1, stars: 1 }
   )));
-  assert.equal(ready.shopLinkCount, 30);
+  assert.equal(ready.shopLinkCount, 35);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
   assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
   assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
@@ -111,7 +114,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.3"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.4"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -164,6 +167,9 @@ function pageStateExpression() {
     const edhrecOriginalText = document.querySelector(".edhrec-original-text");
     const edhrecMockImageContainer = document.querySelector(".edhrec-card-mock .CardImage_container__mock");
     const edhrecMockOverlay = document.querySelector(".edhrec-card-mock .edhrec-ja-overlay");
+    const edhrecLazyOriginalText = document.querySelector(".edhrec-lazy-original-text");
+    const edhrecLazyImageContainer = document.querySelector(".edhrec-card-mock-lazy .lazyload-wrapper");
+    const edhrecLazyOverlay = document.querySelector(".edhrec-card-mock-lazy .edhrec-ja-overlay");
     const backFaceCard = document.querySelector(".back-face-card");
     const backFaceImage = backFaceCard && backFaceCard.querySelector("img");
     const backFaceOverlay = backFaceCard && backFaceCard.querySelector(".edhrec-ja-overlay");
@@ -191,7 +197,7 @@ function pageStateExpression() {
     const replaced = cardishImages.map((img) => img.dataset.edhrecJaState || "");
     const firstShopLinks = Array.from(document.querySelectorAll(".card-shell:first-of-type .edhrec-ja-shop-link"));
     return {
-      ready: cardishImages.length === 8 && replaced.every((state) => state === "replaced") && overlays.length >= 6,
+      ready: cardishImages.length === 9 && replaced.every((state) => state === "replaced") && overlays.length >= 7,
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
@@ -218,6 +224,9 @@ function pageStateExpression() {
       edhrecOverlayImageGap: edhrecMockOverlay && edhrecMockImageContainer ? Math.round(edhrecMockOverlay.getBoundingClientRect().top - edhrecMockImageContainer.getBoundingClientRect().bottom) : -1,
       edhrecOverlayBeforeOriginalText: edhrecOriginalText && edhrecMockOverlay ? edhrecMockOverlay.getBoundingClientRect().bottom <= edhrecOriginalText.getBoundingClientRect().top : false,
       edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
+      edhrecLazyOverlayAfterImage: edhrecLazyOverlay && edhrecLazyImageContainer ? edhrecLazyImageContainer.getBoundingClientRect().bottom <= edhrecLazyOverlay.getBoundingClientRect().top : false,
+      edhrecLazyOverlayBeforeOriginalText: edhrecLazyOriginalText && edhrecLazyOverlay ? edhrecLazyOverlay.getBoundingClientRect().bottom <= edhrecLazyOriginalText.getBoundingClientRect().top : false,
+      edhrecLazyOverlayParentIsCardContainer: edhrecLazyOverlay ? edhrecLazyOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       nameButtonCount: document.querySelectorAll(".edhrec-ja-name-button").length,
       copyButtons: overlays.map((overlay) => {
         const button = overlay.querySelector(".edhrec-ja-chip-button");

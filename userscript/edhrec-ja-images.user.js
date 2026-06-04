@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-04.3
+// @version      2026-06-04.4
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,7 +21,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-04.3";
+  const SCRIPT_VERSION = "2026-06-04.4";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -619,8 +619,8 @@
   }
 
   /**
-   * 操作バーを置く親要素を選ぶ。EDHRECのカードコンテナでは画像と元表示の間に、
-   * 通常カードではリンク内の画像直後に入れられるようにする。
+   * 操作バーを置く親要素を選ぶ。EDHRECのカードコンテナでは画像コンテナと
+   * 元表示の間に、通常カードではリンク内の画像直後に入れられるようにする。
    *
    * @param {Element} host カードリンク要素。
    * @returns {Element} 操作バーのスコープになる要素。
@@ -650,10 +650,13 @@
 
   function edhrecImageContainer(host, cardContainer) {
     let node = host;
+    let directChild = null;
     while (node && node !== cardContainer) {
+      if (node.parentElement === cardContainer) directChild = node;
       if (/\bCardImage_container/.test(String(node.className || ""))) return node;
       node = node.parentElement;
     }
+    if (directChild && directChild.querySelector && directChild.querySelector("img")) return directChild;
     return null;
   }
 
@@ -672,7 +675,8 @@
   /**
    * 操作バーをカード画像の直後へ差し込む。基本の表示順は
    * 画像 → 操作バー → 元の表示。EDHREC固有のCard_containerでは
-   * CardImage_containerの直後へ置き、通常カードではリンク内の画像直後へ置く。
+   * CardImage_containerまたは画像を含む直下要素の直後へ置き、通常カードでは
+   * リンク内の画像直後へ置く。
    *
    * @param {Element} host カードリンク要素。
    * @param {HTMLImageElement} img 差し替え済み画像。

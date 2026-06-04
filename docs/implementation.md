@@ -21,7 +21,8 @@ EDHREC本来のカード名、価格、synergyなど
 ```
 
 通常のカードリンクでは、操作バーをリンク内の画像直後へ入れます。
-EDHREC固有の `Card_container` では、`CardImage_container` の直後へ入れます。
+EDHREC固有の `Card_container` では、`CardImage_container` または画像を含む直下要素の直後へ入れます。
+実サイトでは画像が `lazyload-wrapper` 直下に入ることがあるため、このfallbackもE2Eで守ります。
 この順序を変えると、EDHREC本体のお気に入り表示や元のカード名と重なりやすくなるため、E2Eテストで守っています。
 
 ## Scryfall APIへの配慮
