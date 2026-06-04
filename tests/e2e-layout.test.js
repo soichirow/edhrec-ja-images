@@ -76,6 +76,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.nativeMetaOverlapCount, 0);
   assert.equal(ready.edhrecOriginalTextOverlapCount, 0);
   assert.deepEqual(ready.overlayBeforeNativeMeta, [true, true, true, true, true]);
+  assert.deepEqual(ready.overlayImmediatelyAfterImage, [true, true, true, true, true]);
   assert.equal(ready.edhrecOverlayAfterImage, true);
   assert.ok(ready.edhrecOverlayImageGap >= 4, `image/control gap: ${ready.edhrecOverlayImageGap}`);
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
@@ -110,7 +111,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.2"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.3"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -201,6 +202,16 @@ function pageStateExpression() {
         const overlay = card.querySelector(".edhrec-ja-overlay");
         if (!meta || !overlay) return false;
         return overlay.getBoundingClientRect().bottom <= meta.getBoundingClientRect().top;
+      }),
+      overlayImmediatelyAfterImage: cards.map((card) => {
+        const image = card.querySelector(".card img");
+        const overlay = card.querySelector(".edhrec-ja-overlay");
+        const name = card.querySelector(".name");
+        if (!image || !overlay || !name) return false;
+        const imageBox = image.getBoundingClientRect();
+        const overlayBox = overlay.getBoundingClientRect();
+        const nameBox = name.getBoundingClientRect();
+        return imageBox.bottom <= overlayBox.top && overlayBox.bottom <= nameBox.top;
       }),
       edhrecOriginalTextOverlapCount,
       edhrecOverlayAfterImage: edhrecMockOverlay && edhrecMockImageContainer ? edhrecMockImageContainer.getBoundingClientRect().bottom <= edhrecMockOverlay.getBoundingClientRect().top : false,
