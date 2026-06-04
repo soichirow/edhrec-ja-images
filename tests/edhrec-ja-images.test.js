@@ -33,6 +33,16 @@ test("userscript logs its installed version for diagnostics", () => {
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
+test("userscript documents the important behavior seams with JSDoc", () => {
+  assert.match(source, /@typedef \{Object\} CardHit/);
+  assert.match(source, /\/\*\*[\s\S]*?ふりがな[\s\S]*?\*\/\s+function stripReading/);
+  assert.match(source, /\/\*\*[\s\S]*?両面カード[\s\S]*?\*\/\s+function cardFace/);
+  assert.match(source, /\/\*\*[\s\S]*?通常版に近い画像[\s\S]*?\*\/\s+function isRegularArt/);
+  assert.match(source, /\/\*\*[\s\S]*?Scryfall API[\s\S]*?Retry-After[\s\S]*?\*\/\s+function throttledApiJson/);
+  assert.match(source, /\/\*\*[\s\S]*?画像 → 操作バー → 元の表示[\s\S]*?\*\/\s+function insertControlBox/);
+  assert.match(source, /\/\*\*[\s\S]*?お気に入り[\s\S]*?\*\/\s+function renderFavorites/);
+});
+
 test("userscript skips known EDHREC non-card titles", () => {
   assert.match(source, /the hobbit/);
   assert.match(source, /marvel super heroes/);

@@ -45,6 +45,15 @@
 
   console.info("[EDHREC JA Images] version " + SCRIPT_VERSION);
 
+  /**
+   * @typedef {Object} CardHit
+   * @property {string} src 置き換え先のカード画像URL。
+   * @property {string} label 表示とコピーに使うカード名。日本語名がなければ英語名。
+   * @property {string} scryfall Scryfallの個別カードページURL。
+   * @property {string} english ショップ検索や重複判定に使う英語カード名。
+   * @property {string} layout Scryfallのlayout値。横長カードの除外判定に使う。
+   */
+
   function text(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
@@ -66,6 +75,12 @@
     return /[a-z0-9]/i.test(name) ? name : "";
   }
 
+  /**
+   * Scryfallの日本語printed_nameに入るふりがなを、表示とコピーで扱いやすい表記へ落とす。
+   *
+   * @param {string} name Scryfallから返ったカード名。
+   * @returns {string} ふりがなを除いたカード名。
+   */
   function stripReading(name) {
     return text(name).replace(/([一-龯々])（[ぁ-ゖァ-ヺー]+）/g, "$1");
   }
@@ -95,6 +110,13 @@
     return faceIndex === 1 ? 1 : 0;
   }
 
+  /**
+   * 両面カードでは、EDHRECが裏面画像を表示しているときに裏面の名前と画像を選ぶ。
+   *
+   * @param {Object} card ScryfallのCardオブジェクト。
+   * @param {number} faceIndex 0なら表面、1なら裏面。
+   * @returns {Object|null} 対象面のcard_faces要素。
+   */
   function cardFace(card, faceIndex) {
     const faces = card && card.card_faces ? card.card_faces : [];
     return faces[normalFaceIndex(faceIndex)] || faces[0] || null;
@@ -120,6 +142,13 @@
     return ratio >= 0.45 && ratio <= 0.95;
   }
 
+  /**
+   * 通常版に近い画像だけを候補に残す。ショーケース、拡張アート、プロモ系は
+   * EDHREC上で期待する通常カード画像と見た目が離れやすいため避ける。
+   *
+   * @param {Object} card ScryfallのCardオブジェクト。
+   * @returns {boolean} 通常版として扱える候補ならtrue。
+   */
   function isRegularArt(card) {
     const effects = card && card.frame_effects ? card.frame_effects.join(" ") : "";
     const promos = card && card.promo_types ? card.promo_types.join(" ") : "";
@@ -162,6 +191,14 @@
     return name.toLowerCase() + (normalFaceIndex(faceIndex) ? ":face:" + normalFaceIndex(faceIndex) : "");
   }
 
+  /**
+   * カード名から日本語印刷版を探し、必要に応じて英語通常版へフォールバックする。
+   * pendingで同じカード名の同時検索をまとめ、cacheで再訪時のAPI通信を減らす。
+   *
+   * @param {string} name EDHRECから読み取った英語カード名。
+   * @param {{fallback?: boolean, faceIndex?: number}=} options 検索方針。
+   * @returns {Promise<CardHit|null>} 置き換えに使うカード情報。
+   */
   function getJapanese(name, options) {
     options = options || {};
     const fallback = options.fallback !== false;
@@ -254,6 +291,13 @@
     return "https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=" + encodeURIComponent(query);
   }
 
+  /**
+   * Scryfall APIを呼び出す薄い境界。429ではRetry-Afterを読み取り、後続キューの
+   * 最短実行時刻も遅らせることで、同じページ内の連続アクセスを押し切らない。
+   *
+   * @param {string} url Scryfall APIのURL。
+   * @returns {Promise<Object|null>} JSONレスポンス。404はnull。
+   */
   function apiJson(url) {
     return fetch(url, { headers: API_HEADERS }).then(function (res) {
       if (res.status === 404) return null;
@@ -273,6 +317,14 @@
     });
   }
 
+  /**
+   * Scryfall APIへの呼び出しをthrottled経由にし、Retry-Afterまたは指数バックオフで
+   * リトライ可能な失敗だけ遅延再試行する。
+   *
+   * @param {string} url Scryfall APIのURL。
+   * @param {number=} attempt 現在の再試行回数。
+   * @returns {Promise<Object|null>} JSONレスポンス。404はnull。
+   */
   function throttledApiJson(url, attempt) {
     attempt = attempt || 0;
     return throttled(function () {
@@ -337,6 +389,10 @@
     image.src = src;
   }
 
+  /**
+   * まだ画面外にあるカードリンクを軽く先読みする。日本語ヒットだけを探し、
+   * 英語フォールバックは実表示時に任せてAPI負荷を抑える。
+   */
   function prefetchLinks() {
     let count = 0;
     let imageCount = 0;
@@ -354,6 +410,12 @@
     });
   }
 
+  /**
+   * EDHREC上の1枚の画像を調べ、Scryfallの日本語画像または英語通常画像へ差し替える。
+   * 画像がカード形でない場合や横長layoutの場合は、文字つぶれを避けるためスキップする。
+   *
+   * @param {HTMLImageElement} img 差し替え候補の画像。
+   */
   function replaceOne(img) {
     if (!img || img.dataset.edhrecJaState) return;
     if (!isCardLikeImage(img)) return;
@@ -556,6 +618,13 @@
     }
   }
 
+  /**
+   * 操作バーを置く親要素を選ぶ。EDHRECのカードコンテナでは画像と元表示の間に、
+   * 通常カードではリンク内の画像直後に入れられるようにする。
+   *
+   * @param {Element} host カードリンク要素。
+   * @returns {Element} 操作バーのスコープになる要素。
+   */
   function controlScope(host) {
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) return cardContainer;
@@ -600,6 +669,15 @@
     return last;
   }
 
+  /**
+   * 操作バーをカード画像の直後へ差し込む。基本の表示順は
+   * 画像 → 操作バー → 元の表示。EDHREC固有のCard_containerでは
+   * CardImage_containerの直後へ置き、通常カードではリンク内の画像直後へ置く。
+   *
+   * @param {Element} host カードリンク要素。
+   * @param {HTMLImageElement} img 差し替え済み画像。
+   * @param {HTMLElement} box 追加する操作バー。
+   */
   function insertControlBox(host, img, box) {
     if (!host || !img || !box || host === img) return;
     const cardContainer = edhrecCardContainer(host);
@@ -683,10 +761,22 @@
     return Promise.resolve(fallbackCopyText(value));
   }
 
+  /**
+   * お気に入り登録に使う安定キーを作る。日本語名は版によって揺れるため、
+   * Scryfall検索やショップ検索と同じ英語名で重複をまとめる。
+   *
+   * @param {string} englishName 英語カード名。
+   * @returns {string} localStorage用キー。
+   */
   function favoriteKey(englishName) {
     return text(englishName).toLowerCase();
   }
 
+  /**
+   * お気に入りの追加と解除を切り替え、ブラウザ内localStorageへ保存する。
+   *
+   * @param {{english: string, label: string, scryfall: string, src: string}} card 保存するカード情報。
+   */
   function toggleFavorite(card) {
     const key = favoriteKey(card.english);
     if (!key) return;
@@ -743,6 +833,10 @@
     });
   }
 
+  /**
+   * お気に入りパネルを描画する。リストは最新追加順で表示し、
+   * 「全部コピー」はExcelやスプレッドシートへ貼り付けやすい改行区切りにする。
+   */
   function renderFavorites() {
     ensureFavoriteDock();
     const list = favoriteList();

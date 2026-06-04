@@ -65,6 +65,7 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 EDHREC のページを開くだけで動きます。
 
 差し替えたカード画像の下に、小さな操作バーが出ます。
+操作バーはカード画像の直後に入り、EDHREC 本来のカード名、価格、synergy などの表示はその下に続きます。
 
 ```text
 Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
@@ -86,6 +87,14 @@ Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
 ```
 
 一部のカードは、日本語版画像が Scryfall にないことがあります。その場合は英語画像のまま、または英語通常版になります。
+
+## 開発者向け
+
+実装方針、Scryfall API への配慮、テスト方法は次にまとめています。
+
+```text
+docs/implementation.md
+```
 
 ## License
 
