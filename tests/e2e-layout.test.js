@@ -84,8 +84,16 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.edhrecLazyOverlayAfterImage, true);
   assert.equal(ready.edhrecLazyOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecLazyOverlayParentIsCardContainer, true);
+  assert.equal(ready.taggerOverlayCount, 1);
+  assert.equal(ready.taggerImageState, "replaced");
+  assert.equal(ready.taggerOverlayParentIsGridItem, true);
+  assert.equal(ready.taggerOverlayAfterCard, true);
+  assert.equal(ready.taggerOverlayBeforeTagRow, true);
+  assert.equal(ready.taggerAlt, "爆発的植生");
+  assert.equal(ready.taggerLabel, "爆発的植生");
+  assert.equal(ready.taggerEnglish, "Explosive Vegetation");
   assert.equal(ready.nameButtonCount, 0);
-  assert.deepEqual(ready.copyButtons, Array.from({ length: 7 }, () => (
+  assert.deepEqual(ready.copyButtons, Array.from({ length: 8 }, () => (
     { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" }
   )));
   assert.deepEqual(ready.scryfallLinks.map((link) => ({
@@ -94,15 +102,15 @@ test("layout fixture works in a real browser", async (t) => {
     title: link.title,
     svgCount: link.svgCount,
     icon: link.icon
-  })), Array.from({ length: 7 }, () => (
+  })), Array.from({ length: 8 }, () => (
     { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" }
   )));
   assert.ok(ready.scryfallLinks.every((link) => /^https:\/\/scryfall\.com\/card\//.test(link.href)));
   assert.ok(ready.overlayHeights.every((height) => height <= 36), `overlay heights: ${ready.overlayHeights.join(",")}`);
-  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 7 }, () => (
+  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 8 }, () => (
     { scryfall: 1, shops: 5, copies: 1, stars: 1 }
   )));
-  assert.equal(ready.shopLinkCount, 35);
+  assert.equal(ready.shopLinkCount, 40);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
   assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
   assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
@@ -114,7 +122,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.4"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.5"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -173,6 +181,11 @@ function pageStateExpression() {
     const backFaceCard = document.querySelector(".back-face-card");
     const backFaceImage = backFaceCard && backFaceCard.querySelector("img");
     const backFaceOverlay = backFaceCard && backFaceCard.querySelector(".edhrec-ja-overlay");
+    const taggerCard = document.querySelector(".tagger-card-item");
+    const taggerLink = taggerCard && taggerCard.querySelector("a.card");
+    const taggerImage = taggerCard && taggerCard.querySelector("img");
+    const taggerTagRow = taggerCard && taggerCard.querySelector(".tag-row");
+    const taggerOverlay = taggerCard && taggerCard.querySelector(".edhrec-ja-overlay");
     const overlaps = (one, two) => {
       if (!one || !two) return false;
       const a = one.getBoundingClientRect();
@@ -197,7 +210,7 @@ function pageStateExpression() {
     const replaced = cardishImages.map((img) => img.dataset.edhrecJaState || "");
     const firstShopLinks = Array.from(document.querySelectorAll(".card-shell:first-of-type .edhrec-ja-shop-link"));
     return {
-      ready: cardishImages.length === 9 && replaced.every((state) => state === "replaced") && overlays.length >= 7,
+      ready: cardishImages.length === 10 && replaced.every((state) => state === "replaced") && overlays.length >= 8,
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
@@ -227,6 +240,14 @@ function pageStateExpression() {
       edhrecLazyOverlayAfterImage: edhrecLazyOverlay && edhrecLazyImageContainer ? edhrecLazyImageContainer.getBoundingClientRect().bottom <= edhrecLazyOverlay.getBoundingClientRect().top : false,
       edhrecLazyOverlayBeforeOriginalText: edhrecLazyOriginalText && edhrecLazyOverlay ? edhrecLazyOverlay.getBoundingClientRect().bottom <= edhrecLazyOriginalText.getBoundingClientRect().top : false,
       edhrecLazyOverlayParentIsCardContainer: edhrecLazyOverlay ? edhrecLazyOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
+      taggerOverlayCount: taggerCard ? taggerCard.querySelectorAll(".edhrec-ja-overlay").length : -1,
+      taggerImageState: taggerImage ? taggerImage.dataset.edhrecJaState || "" : "",
+      taggerOverlayParentIsGridItem: taggerOverlay ? taggerOverlay.parentElement.className.indexOf("card-grid-item") !== -1 : false,
+      taggerOverlayAfterCard: taggerOverlay && taggerLink ? taggerLink.getBoundingClientRect().bottom <= taggerOverlay.getBoundingClientRect().top : false,
+      taggerOverlayBeforeTagRow: taggerOverlay && taggerTagRow ? taggerOverlay.getBoundingClientRect().bottom <= taggerTagRow.getBoundingClientRect().top : false,
+      taggerAlt: taggerImage ? taggerImage.alt : "",
+      taggerLabel: taggerOverlay ? taggerOverlay.dataset.jaLabel : "",
+      taggerEnglish: taggerOverlay ? taggerOverlay.dataset.englishName : "",
       nameButtonCount: document.querySelectorAll(".edhrec-ja-name-button").length,
       copyButtons: overlays.map((overlay) => {
         const button = overlay.querySelector(".edhrec-ja-chip-button");

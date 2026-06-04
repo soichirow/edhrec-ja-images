@@ -19,17 +19,20 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-04\.4/);
+  assert.match(source, /@version\s+2026-06-04\.5/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
+  assert.match(source, /@match\s+https:\/\/edhrec\.com\/\*/);
+  assert.match(source, /@match\s+https:\/\/www\.edhrec\.com\/\*/);
+  assert.match(source, /@match\s+https:\/\/tagger\.scryfall\.com\/\*/);
   assert.match(source, /@homepageURL\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
   assert.match(source, /@supportURL\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images\/issues/);
   assert.doesNotMatch(source.split(/\r?\n/).slice(0, 12).join("\n"), /SAFE/);
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-04\.4"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-04\.5"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -78,6 +81,9 @@ test("userscript uses const and let instead of var", () => {
 test("userscript prefetches card links and renders Japanese Scryfall links", () => {
   assert.match(source, /function prefetchLinks/);
   assert.match(source, /MAX_PREFETCH_PER_SCAN/);
+  assert.match(source, /a\[href\*="\/cards\/"\]/);
+  assert.match(source, /a\[href\*="\/commanders\/"\]/);
+  assert.match(source, /a\[href\^="\/card\/"\]/);
   assert.match(source, /showScryfallLink/);
   assert.match(source, /hit\.scryfall/);
 });

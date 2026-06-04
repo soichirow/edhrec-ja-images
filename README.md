@@ -1,6 +1,6 @@
 # EDHREC Japanese Card Images
 
-EDHREC のカード画像を、Scryfall にある日本語版画像へ自動で差し替えるユーザースクリプトです。
+EDHREC と Scryfall Tagger のカード画像を、Scryfall にある日本語版画像へ自動で差し替えるユーザースクリプトです。
 
 EDHREC で統率者デッキを見ながら、日本語名でカードを確認したり、カード名をコピーして Excel やスプレッドシートへ貼り付けたりしやすくします。
 
@@ -39,12 +39,12 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 現在のバージョン:
 
 ```text
-2026-06-04.4
+2026-06-04.5
 ```
 
 ## できること
 
-- EDHREC のカード画像を日本語版画像へ差し替え
+- EDHREC と Scryfall Tagger のカード画像を日本語版画像へ差し替え
 - 両面カードは、裏面画像なら裏面の日本語画像を表示
 - 日本語版が見つからないカードは英語通常版を表示
 - 特殊アートやショーケース系の画像をなるべく避ける
@@ -62,7 +62,7 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 
 ## 使い方
 
-EDHREC のページを開くだけで動きます。
+EDHREC または Scryfall Tagger のページを開くだけで動きます。
 
 差し替えたカード画像の下に、小さな操作バーが出ます。
 操作バーはカード画像の直後に入り、EDHREC 本来のカード名、価格、synergy などの表示はその下に続きます。
@@ -78,12 +78,12 @@ Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
 ## うまく動かないとき
 
 - Tampermonkey でスクリプトが有効か確認する
-- EDHREC のページを再読み込みする
+- EDHREC または Scryfall Tagger のページを再読み込みする
 - 広告ブロッカーなどが `api.scryfall.com` を止めていないか確認する
 - Chrome の Console に次の表示があるか確認する
 
 ```text
-[EDHREC JA Images] version 2026-06-04.4
+[EDHREC JA Images] version 2026-06-04.5
 ```
 
 一部のカードは、日本語版画像が Scryfall にないことがあります。その場合は英語画像のまま、または英語通常版になります。

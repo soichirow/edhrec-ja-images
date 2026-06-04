@@ -2,13 +2,14 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-04.4
+// @version      2026-06-04.5
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
 // @license      MIT
 // @match        https://edhrec.com/*
 // @match        https://www.edhrec.com/*
+// @match        https://tagger.scryfall.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=edhrec.com
 // @homepageURL  https://github.com/soichirow/edhrec-ja-images
 // @supportURL   https://github.com/soichirow/edhrec-ja-images/issues
@@ -21,7 +22,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-04.4";
+  const SCRIPT_VERSION = "2026-06-04.5";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -31,8 +32,8 @@
   const MAX_CACHE_ENTRIES = 800;
   const MAX_API_RETRIES = 2;
   const API_HEADERS = { Accept: "application/json;q=0.9,*/*;q=0.8" };
-  const imageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
-  const linkSelector = 'a[href*="/cards/"], a[href*="/commanders/"]';
+  const imageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, a[href^="/card/"] img, a[href^="https://tagger.scryfall.com/card/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
+  const linkSelector = 'a[href*="/cards/"], a[href*="/commanders/"], a[href^="/card/"], a[href^="https://tagger.scryfall.com/card/"]';
   const skipTitle = /^(abstract performance|expansion algorithm|marvel super heroes|planar engineering|reality fracture|secret lair drop|secrets of strixhaven|teenage mutant ninja turtles|the hobbit)$/i;
   const skipWord = /^(archidekt|cardsphere|commander spellbook|crossword|edhrec|fabrec|multi|mtgstocks|moxfield|preview|scryfall|spellify)$/i;
   const cache = readCache();
@@ -628,6 +629,8 @@
   function controlScope(host) {
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) return cardContainer;
+    const taggerContainer = taggerCardGridItem(host);
+    if (taggerContainer) return taggerContainer;
     return metadataSiblingAfter(host) ? host.parentNode : host;
   }
 
@@ -648,15 +651,34 @@
     return Boolean(node && node.querySelector && node.querySelector('[class*="CardLabel"],[class*="CardPrice"],[class*="Card_nameWrapper"]'));
   }
 
+  function taggerCardGridItem(host) {
+    const container = host && host.closest ? host.closest(".card-grid-item") : null;
+    if (!container || !container.querySelector) return null;
+    return container.querySelector("a.card img") ? container : null;
+  }
+
   function edhrecImageContainer(host, cardContainer) {
     let node = host;
     let directChild = null;
+    if (host === cardContainer) return directImageChild(cardContainer);
     while (node && node !== cardContainer) {
       if (node.parentElement === cardContainer) directChild = node;
       if (/\bCardImage_container/.test(String(node.className || ""))) return node;
       node = node.parentElement;
     }
-    if (directChild && directChild.querySelector && directChild.querySelector("img")) return directChild;
+    if (directChild && containsImage(directChild)) return directChild;
+    return directImageChild(cardContainer);
+  }
+
+  function containsImage(node) {
+    return Boolean(node && node.querySelector && node.querySelector("img"));
+  }
+
+  function directImageChild(cardContainer) {
+    const children = cardContainer && cardContainer.children ? cardContainer.children : [];
+    for (let index = 0; index < children.length; index += 1) {
+      if (containsImage(children[index])) return children[index];
+    }
     return null;
   }
 
@@ -690,6 +712,13 @@
       const reference = imageContainer && imageContainer.parentNode === cardContainer ? imageContainer.nextSibling : cardContainer.firstChild;
       if (box.parentNode === cardContainer && box === reference) return;
       cardContainer.insertBefore(box, reference);
+      return;
+    }
+    const taggerContainer = taggerCardGridItem(host);
+    if (taggerContainer && host.parentNode === taggerContainer) {
+      const reference = host.nextSibling;
+      if (reference === box) return;
+      taggerContainer.insertBefore(box, reference);
       return;
     }
     const before = metadataSiblingAfter(host);
