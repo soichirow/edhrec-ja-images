@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-04.5
+// @version      2026-06-04.6
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -22,7 +22,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-04.5";
+  const SCRIPT_VERSION = "2026-06-04.6";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -663,7 +663,7 @@
     if (host === cardContainer) return directImageChild(cardContainer);
     while (node && node !== cardContainer) {
       if (node.parentElement === cardContainer) directChild = node;
-      if (/\bCardImage_container/.test(String(node.className || ""))) return node;
+      if (/\bCardImage_container/.test(String(node.className || "")) && node.parentElement === cardContainer) return node;
       node = node.parentElement;
     }
     if (directChild && containsImage(directChild)) return directChild;
@@ -671,7 +671,7 @@
   }
 
   function containsImage(node) {
-    return Boolean(node && node.querySelector && node.querySelector("img"));
+    return Boolean(node && ((node.matches && node.matches("img")) || (node.querySelector && node.querySelector("img"))));
   }
 
   function directImageChild(cardContainer) {

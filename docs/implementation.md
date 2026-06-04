@@ -24,7 +24,8 @@ EDHREC本来のカード名、価格、synergyなど
 通常のカードリンクでは、操作バーをリンク内の画像直後へ入れます。
 EDHREC固有の `Card_container` では、`CardImage_container` または画像を含む直下要素の直後へ入れます。
 Scryfall Taggerの `card-grid-item` では、固定比率のカードリンクとタグ行が重ならないように、操作バーをカードリンクの直後へ入れます。
-実サイトでは `Card_container` 自体がカードリンクで、画像が `lazyload-wrapper` 直下に入ることがあるため、このfallbackもE2Eで守ります。
+実サイトでは `Card_container` 自体がカードリンクになる場合と、`lazyload-wrapper` の内側に `CardImage_container` とカードリンクが入る場合があります。
+このときは内側の `CardImage_container` ではなく、カード直下の `lazyload-wrapper` の直後へ操作バーを入れることをE2Eで守ります。
 この順序を変えると、EDHREC本体のお気に入り表示や元のカード名と重なりやすくなるため、E2Eテストで守っています。
 
 ## Scryfall APIへの配慮
