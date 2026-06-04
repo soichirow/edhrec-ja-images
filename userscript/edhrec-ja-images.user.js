@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-04.1
+// @version      2026-06-04.2
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -21,7 +21,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-04.1";
+  const SCRIPT_VERSION = "2026-06-04.2";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -85,10 +85,26 @@
     return match ? match[1] : "";
   }
 
-  function cardImage(card) {
+  function faceIndexOfImage(img) {
+    const src = img ? img.currentSrc || img.src || img.getAttribute("data-src") || "" : "";
+    const match = String(src).match(/\/(front|back)\//i);
+    return match && match[1].toLowerCase() === "back" ? 1 : 0;
+  }
+
+  function normalFaceIndex(faceIndex) {
+    return faceIndex === 1 ? 1 : 0;
+  }
+
+  function cardFace(card, faceIndex) {
+    const faces = card && card.card_faces ? card.card_faces : [];
+    return faces[normalFaceIndex(faceIndex)] || faces[0] || null;
+  }
+
+  function cardImage(card, faceIndex) {
+    const face = cardFace(card, faceIndex);
     let uris = card && card.image_uris;
-    if (!uris && card && card.card_faces && card.card_faces[0]) {
-      uris = card.card_faces[0].image_uris;
+    if (!uris && face) {
+      uris = face.image_uris;
     }
     return uris ? uris.normal || uris.large || uris.small || uris.png || "" : "";
   }
@@ -142,10 +158,15 @@
     return cache[key].value;
   }
 
+  function cacheKeyForName(name, faceIndex) {
+    return name.toLowerCase() + (normalFaceIndex(faceIndex) ? ":face:" + normalFaceIndex(faceIndex) : "");
+  }
+
   function getJapanese(name, options) {
     options = options || {};
     const fallback = options.fallback !== false;
-    const key = name.toLowerCase();
+    const faceIndex = normalFaceIndex(options.faceIndex);
+    const key = cacheKeyForName(name, faceIndex);
     const jaPendingKey = "ja:" + key;
     const pendingKey = fallback ? key : jaPendingKey;
     if (fresh(key)) return Promise.resolve(cache[key].value);
@@ -154,7 +175,7 @@
     if (fallback && pending[jaPendingKey]) {
       pending[pendingKey] = pending[jaPendingKey].then(function (hit) {
         if (hit) return remember(key, hit);
-        return fallbackEnglish(name).then(function (found) {
+        return fallbackEnglish(name, faceIndex).then(function (found) {
           return remember(key, found);
         });
       }).catch(function () {
@@ -164,10 +185,10 @@
       });
       return pending[pendingKey];
     }
-    pending[pendingKey] = searchRegularPrint(name, "ja").then(function (found) {
-      if (found) return hitFromCard(found, name);
+    pending[pendingKey] = searchRegularPrint(name, "ja", faceIndex).then(function (found) {
+      if (found) return hitFromCard(found, name, faceIndex);
       if (!fallback) return null;
-      return fallbackEnglish(name);
+      return fallbackEnglish(name, faceIndex);
     }).then(function (hit) {
       if (fallback || hit) return remember(key, hit);
       return hit;
@@ -179,23 +200,24 @@
     return pending[pendingKey];
   }
 
-  function fallbackEnglish(name) {
+  function fallbackEnglish(name, faceIndex) {
     return delay(FALLBACK_DELAY).then(function () {
-      return searchRegularPrint(name, "en");
+      return searchRegularPrint(name, "en", faceIndex);
     }).then(function (found) {
-      return found ? hitFromCard(found, name) : null;
+      return found ? hitFromCard(found, name, faceIndex) : null;
     });
   }
 
-  function getByScryfallId(id) {
-    const key = "id:" + String(id || "").toLowerCase();
+  function getByScryfallId(id, faceIndex) {
+    faceIndex = normalFaceIndex(faceIndex);
+    const key = "id:" + String(id || "").toLowerCase() + (faceIndex ? ":face:" + faceIndex : "");
     if (!id) return Promise.resolve(null);
     if (fresh(key)) return Promise.resolve(cache[key].value);
     if (pending[key]) return pending[key];
     pending[key] = throttledApiJson("https://api.scryfall.com/cards/" + encodeURIComponent(id)).then(function (card) {
       if (!card || !card.name) return null;
-      return getJapanese(card.name, { fallback: true }).then(function (hit) {
-        return hit || hitFromCard(card, card.name);
+      return getJapanese(card.name, { fallback: true, faceIndex: faceIndex }).then(function (hit) {
+        return hit || hitFromCard(card, card.name, faceIndex);
       });
     }).then(function (hit) {
       return remember(key, hit);
@@ -207,21 +229,22 @@
     return pending[key];
   }
 
-  function hitFromCard(card, fallbackName) {
+  function hitFromCard(card, fallbackName, faceIndex) {
+    const face = cardFace(card, faceIndex);
     return {
-      src: cardImage(card),
-      label: stripReading(card.printed_name || card.name || fallbackName),
+      src: cardImage(card, faceIndex),
+      label: stripReading((face && face.printed_name) || card.printed_name || (face && face.name) || card.name || fallbackName),
       scryfall: card.scryfall_uri || "",
-      english: card.name || fallbackName,
-      layout: card.layout || "",
+      english: (face && face.name) || card.name || fallbackName,
+      layout: (face && face.layout) || card.layout || "",
     };
   }
 
-  function searchRegularPrint(name, lang) {
+  function searchRegularPrint(name, lang, faceIndex) {
     return throttledApiJson(scryfallSearchUrl(name, lang)).then(function (body) {
       const list = body && body.data ? body.data : [];
       return list.find(function (card) {
-        return card.lang === lang && cardImage(card) && isRegularArt(card);
+        return card.lang === lang && cardImage(card, faceIndex) && isRegularArt(card);
       }) || null;
     });
   }
@@ -339,9 +362,10 @@
     if (!link && !/scryfall/i.test(src)) return;
     const name = nameOfImage(img);
     const scryfallId = scryfallIdOfImage(img);
+    const faceIndex = faceIndexOfImage(img);
     if (!name && !scryfallId) return;
     img.dataset.edhrecJaState = "pending";
-    (name ? getJapanese(name, { fallback: true }) : getByScryfallId(scryfallId)).then(function (hit) {
+    (name ? getJapanese(name, { fallback: true, faceIndex: faceIndex }) : getByScryfallId(scryfallId, faceIndex)).then(function (hit) {
       if (!hit) {
         img.dataset.edhrecJaState = "missing";
         return;

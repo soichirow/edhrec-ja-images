@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-04\.1/);
+  assert.match(source, /@version\s+2026-06-04\.2/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -29,7 +29,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-04\.1"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-04\.2"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -73,8 +73,8 @@ test("userscript prefetches card links and renders Japanese Scryfall links", () 
 });
 
 test("userscript falls back to English Scryfall cards when Japanese prints are missing", () => {
-  assert.match(source, /searchRegularPrint\(name, "ja"\)/);
-  assert.match(source, /searchRegularPrint\(name, "en"\)/);
+  assert.match(source, /searchRegularPrint\(name, "ja", faceIndex\)/);
+  assert.match(source, /searchRegularPrint\(name, "en", faceIndex\)/);
   assert.match(source, /const FALLBACK_DELAY = 900/);
   assert.match(source, /delay\(FALLBACK_DELAY\)\.then/);
   assert.match(source, /function hitFromCard/);
@@ -91,14 +91,25 @@ test("userscript prioritizes visible cards and keeps prefetch lightweight", () =
   assert.match(source, /function schedulePrefetch/);
   assert.match(source, /requestIdleCallback/);
   assert.match(source, /getJapanese\(name, \{ fallback: false \}\)/);
-  assert.match(source, /getJapanese\(name, \{ fallback: true \}\)/);
+  assert.match(source, /getJapanese\(name, \{ fallback: true, faceIndex: faceIndex \}\)/);
 });
 
 test("userscript can resolve unlinked commander images from Scryfall image IDs", () => {
   assert.match(source, /function scryfallIdOfImage/);
   assert.match(source, /function getByScryfallId/);
   assert.match(source, /api\.scryfall\.com\/cards\//);
-  assert.match(source, /name \? getJapanese\(name, \{ fallback: true \}\) : getByScryfallId\(scryfallId\)/);
+  assert.match(source, /name \? getJapanese\(name, \{ fallback: true, faceIndex: faceIndex \}\) : getByScryfallId\(scryfallId, faceIndex\)/);
+});
+
+test("userscript preserves Scryfall back-face images for double-faced cards", () => {
+  assert.match(source, /function faceIndexOfImage/);
+  assert.match(source, /\(front\|back\)/);
+  assert.match(source, /function cardFace\(card, faceIndex\)/);
+  assert.match(source, /function cacheKeyForName\(name, faceIndex\)/);
+  assert.match(source, /cardImage\(card, faceIndex\)/);
+  assert.match(source, /hitFromCard\(found, name, faceIndex\)/);
+  assert.match(source, /searchRegularPrint\(name, "ja", faceIndex\)/);
+  assert.match(source, /faceIndex: faceIndex/);
 });
 
 test("userscript preloads Japanese image URLs while leaving original images visible", () => {
@@ -152,7 +163,7 @@ test("userscript skips unsupported landscape-oriented Scryfall layouts", () => {
   assert.match(source, /battle\|planar\|scheme\|vanguard/);
   assert.match(source, /function canReplaceImage/);
   assert.match(source, /!isUnsupportedLayout\(hit && hit\.layout\)/);
-  assert.match(source, /layout: card\.layout \|\| ""/);
+  assert.match(source, /layout: \(face && face\.layout\) \|\| card\.layout \|\| ""/);
   assert.match(source, /img\.dataset\.edhrecJaState = "skipped"/);
 });
 
@@ -185,7 +196,7 @@ test("userscript avoids special art and offers Japanese-name copy", () => {
 
 test("userscript strips Japanese reading annotations before display and copy", () => {
   assert.match(source, /function stripReading/);
-  assert.match(source, /stripReading\(card\.printed_name/);
+  assert.match(source, /stripReading\(\(face && face\.printed_name\) \|\| card\.printed_name/);
   assert.match(source, /\[一-龯々\]/);
 });
 

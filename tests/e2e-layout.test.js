@@ -71,46 +71,34 @@ test("layout fixture works in a real browser", async (t) => {
   });
 
   assert.equal(ready.commanderOverlayCount, 0);
-  assert.deepEqual(ready.cardOverlays, [1, 1, 1, 1]);
+  assert.deepEqual(ready.cardOverlays, [1, 1, 1, 1, 1]);
   assert.equal(ready.imageOverlapCount, 0);
   assert.equal(ready.nativeMetaOverlapCount, 0);
   assert.equal(ready.edhrecOriginalTextOverlapCount, 0);
-  assert.deepEqual(ready.overlayBeforeNativeMeta, [true, true, true, true]);
+  assert.deepEqual(ready.overlayBeforeNativeMeta, [true, true, true, true, true]);
   assert.equal(ready.edhrecOverlayAfterImage, true);
   assert.ok(ready.edhrecOverlayImageGap >= 4, `image/control gap: ${ready.edhrecOverlayImageGap}`);
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
   assert.equal(ready.nameButtonCount, 0);
-  assert.deepEqual(ready.copyButtons, [
-    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
-    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
-    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
-    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
-    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" },
-  ]);
+  assert.deepEqual(ready.copyButtons, Array.from({ length: 6 }, () => (
+    { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" }
+  )));
   assert.deepEqual(ready.scryfallLinks.map((link) => ({
     text: link.text,
     aria: link.aria,
     title: link.title,
     svgCount: link.svgCount,
     icon: link.icon
-  })), [
-    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
-    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
-    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
-    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
-    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" },
-  ]);
+  })), Array.from({ length: 6 }, () => (
+    { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" }
+  )));
   assert.ok(ready.scryfallLinks.every((link) => /^https:\/\/scryfall\.com\/card\//.test(link.href)));
   assert.ok(ready.overlayHeights.every((height) => height <= 36), `overlay heights: ${ready.overlayHeights.join(",")}`);
-  assert.deepEqual(ready.compactControlCounts, [
-    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
-    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
-    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
-    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
-    { scryfall: 1, shops: 5, copies: 1, stars: 1 },
-  ]);
-  assert.equal(ready.shopLinkCount, 25);
+  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 6 }, () => (
+    { scryfall: 1, shops: 5, copies: 1, stars: 1 }
+  )));
+  assert.equal(ready.shopLinkCount, 30);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
   assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
   assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
@@ -119,7 +107,10 @@ test("layout fixture works in a real browser", async (t) => {
   assert.notEqual(ready.wideThumbnailState, "replaced");
   assert.equal(ready.battleThumbnailOverlayCount, 0);
   assert.notEqual(ready.battleThumbnailState, "replaced");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.1"));
+  assert.equal(ready.backFace.alt, "昆虫の逸脱者");
+  assert.equal(ready.backFace.label, "昆虫の逸脱者");
+  assert.equal(ready.backFace.english, "Insectile Aberration");
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.2"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -172,6 +163,9 @@ function pageStateExpression() {
     const edhrecOriginalText = document.querySelector(".edhrec-original-text");
     const edhrecMockImageContainer = document.querySelector(".edhrec-card-mock .CardImage_container__mock");
     const edhrecMockOverlay = document.querySelector(".edhrec-card-mock .edhrec-ja-overlay");
+    const backFaceCard = document.querySelector(".back-face-card");
+    const backFaceImage = backFaceCard && backFaceCard.querySelector("img");
+    const backFaceOverlay = backFaceCard && backFaceCard.querySelector(".edhrec-ja-overlay");
     const overlaps = (one, two) => {
       if (!one || !two) return false;
       const a = one.getBoundingClientRect();
@@ -196,7 +190,7 @@ function pageStateExpression() {
     const replaced = cardishImages.map((img) => img.dataset.edhrecJaState || "");
     const firstShopLinks = Array.from(document.querySelectorAll(".card-shell:first-of-type .edhrec-ja-shop-link"));
     return {
-      ready: cardishImages.length === 7 && replaced.every((state) => state === "replaced") && overlays.length >= 5,
+      ready: cardishImages.length === 8 && replaced.every((state) => state === "replaced") && overlays.length >= 6,
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
@@ -247,6 +241,11 @@ function pageStateExpression() {
       shopLabels: firstShopLinks.map((link) => link.textContent),
       shopHrefs: firstShopLinks.map((link) => link.href),
       shopLinkCount: document.querySelectorAll(".edhrec-ja-shop-link").length,
+      backFace: {
+        alt: backFaceImage ? backFaceImage.alt : "",
+        label: backFaceOverlay ? backFaceOverlay.dataset.jaLabel : "",
+        english: backFaceOverlay ? backFaceOverlay.dataset.englishName : ""
+      },
       wideThumbnailOverlayCount: wideThumbnail ? wideThumbnail.querySelectorAll(".edhrec-ja-overlay").length : -1,
       wideThumbnailState: wideThumbnail ? wideThumbnail.querySelector("img").dataset.edhrecJaState || "" : "",
       battleThumbnailOverlayCount: battleThumbnail ? battleThumbnail.querySelectorAll(".edhrec-ja-overlay").length : -1,
