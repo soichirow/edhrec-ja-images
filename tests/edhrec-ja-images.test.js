@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-05\.2/);
+  assert.match(source, /@version\s+2026-06-05\.3/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -35,7 +35,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.2"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.3"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -45,7 +45,7 @@ test("userscript documents the important behavior seams with JSDoc", () => {
   assert.match(source, /\/\*\*[\s\S]*?両面カード[\s\S]*?\*\/\s+function cardFace/);
   assert.match(source, /\/\*\*[\s\S]*?通常版に近い画像[\s\S]*?\*\/\s+function isRegularArt/);
   assert.match(source, /\/\*\*[\s\S]*?Scryfall API[\s\S]*?Retry-After[\s\S]*?\*\/\s+function throttledApiJson/);
-  assert.match(source, /\/\*\*[\s\S]*?画像 → 操作バー → 元の表示[\s\S]*?\*\/\s+function insertControlBox/);
+  assert.match(source, /\/\*\*[\s\S]*?画像と価格表示のまとまりの直後[\s\S]*?\*\/\s+function insertControlBox/);
   assert.match(source, /\/\*\*[\s\S]*?お気に入り[\s\S]*?\*\/\s+function renderFavorites/);
 });
 

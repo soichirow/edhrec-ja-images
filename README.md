@@ -42,7 +42,7 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 現在のバージョン:
 
 ```text
-2026-06-05.2
+2026-06-05.3
 ```
 
 ## できること
@@ -68,7 +68,7 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 EDHREC、Scryfall Tagger、または Scryfall 検索結果のページを開くだけで動きます。
 
 差し替えたカード画像の下に、小さな操作バーが出ます。
-操作バーはカード画像の直後に入り、EDHREC 本来のカード名、価格、synergy などの表示はその下に続きます。
+EDHREC では操作バーは価格行の下に入り、EDHREC 本来のカード名や synergy などの表示はその下に続きます。
 
 ```text
 Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
@@ -86,7 +86,7 @@ Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
 - Chrome の Console に次の表示があるか確認する
 
 ```text
-[EDHREC JA Images] version 2026-06-05.2
+[EDHREC JA Images] version 2026-06-05.3
 ```
 
 一部のカードは、日本語版画像が Scryfall にないことがあります。その場合は英語画像のまま、または英語通常版になります。

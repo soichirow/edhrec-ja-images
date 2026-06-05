@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-05.2
+// @version      2026-06-05.3
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -25,7 +25,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-05.2";
+  const SCRIPT_VERSION = "2026-06-05.3";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -679,10 +679,10 @@
 
   function controlBoxLooksPlaced(host, img, box) {
     const cardContainer = edhrecCardContainer(host);
-    let prices;
+    let priceGroup;
     if (cardContainer) {
-      prices = edhrecPriceAfterImage(host, img, cardContainer);
-      if (prices) return Boolean(box && box.parentNode === prices.parentNode && box.nextSibling === prices);
+      priceGroup = edhrecPriceGroupAfterImage(host, img, cardContainer);
+      if (priceGroup) return Boolean(box && box.parentNode === priceGroup.parentNode && box.previousElementSibling === priceGroup);
     }
     return Boolean(box && box.previousElementSibling && containsImage(box.previousElementSibling));
   }
@@ -819,6 +819,12 @@
     return prices || null;
   }
 
+  function edhrecPriceGroupAfterImage(host, img, cardContainer) {
+    const prices = edhrecPriceAfterImage(host, img, cardContainer);
+    const group = directChildOf(cardContainer, prices);
+    return group || prices;
+  }
+
   function isEdhrecPriceElement(node) {
     return Boolean(node && /(?:CardPrices|Prices|prices)/.test(String(node.className || "")) && !containsImage(node) && text(node.textContent));
   }
@@ -848,10 +854,8 @@
   }
 
   /**
-   * 操作バーをカード画像の直後へ差し込む。基本の表示順は
-   * 画像 → 操作バー → 元の表示。EDHREC固有のCard_containerでは
-   * CardImage_containerまたは画像を含む直下要素の直後へ置き、通常カードでは
-   * リンク内の画像直後へ置く。
+   * 操作バーをカード表示の中へ差し込む。EDHREC固有のCard_containerでは
+   * 画像と価格表示のまとまりの直後へ置き、通常カードではリンク内の画像直後へ置く。
    *
    * @param {Element} host カードリンク要素。
    * @param {HTMLImageElement} img 差し替え済み画像。
@@ -861,10 +865,10 @@
     if (!host || !img || !box || host === img) return;
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) {
-      const prices = edhrecPriceAfterImage(host, img, cardContainer);
-      if (prices && prices.parentNode) {
-        if (box.parentNode === prices.parentNode && box.nextSibling === prices) return;
-        prices.parentNode.insertBefore(box, prices);
+      const priceGroup = edhrecPriceGroupAfterImage(host, img, cardContainer);
+      if (priceGroup && priceGroup.parentNode) {
+        if (box.parentNode === priceGroup.parentNode && box.previousElementSibling === priceGroup) return;
+        priceGroup.parentNode.insertBefore(box, priceGroup.nextSibling);
         return;
       }
       const imageContainer = edhrecImageContainer(host, cardContainer);

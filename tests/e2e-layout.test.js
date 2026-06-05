@@ -82,10 +82,10 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
   assert.equal(ready.edhrecLazyOverlayAfterImage, true);
-  assert.equal(ready.edhrecLazyOverlayBeforePrices, true);
+  assert.equal(ready.edhrecLazyPricesBeforeOverlay, true);
   assert.equal(ready.edhrecLazyPricesBeforeOriginalText, true);
   assert.equal(ready.edhrecLazyOverlayBeforeOriginalText, true);
-  assert.equal(ready.edhrecLazyOverlayParentIsPriceParent, true);
+  assert.equal(ready.edhrecLazyOverlayParentIsCardContainer, true);
   assert.equal(ready.taggerOverlayCount, 1);
   assert.equal(ready.taggerImageState, "replaced");
   assert.equal(ready.taggerOverlayParentIsGridItem, true);
@@ -132,7 +132,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-05.2"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-05.3"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -267,10 +267,10 @@ function pageStateExpression() {
       edhrecOverlayBeforeOriginalText: edhrecOriginalText && edhrecMockOverlay ? edhrecMockOverlay.getBoundingClientRect().bottom <= edhrecOriginalText.getBoundingClientRect().top : false,
       edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       edhrecLazyOverlayAfterImage: edhrecLazyOverlay && edhrecLazyImageContainer ? edhrecLazyImageContainer.getBoundingClientRect().bottom <= edhrecLazyOverlay.getBoundingClientRect().top : false,
-      edhrecLazyOverlayBeforePrices: edhrecLazyPrices && edhrecLazyOverlay ? edhrecLazyOverlay.getBoundingClientRect().bottom <= edhrecLazyPrices.getBoundingClientRect().top : false,
+      edhrecLazyPricesBeforeOverlay: edhrecLazyPrices && edhrecLazyOverlay ? edhrecLazyPrices.getBoundingClientRect().bottom <= edhrecLazyOverlay.getBoundingClientRect().top : false,
       edhrecLazyPricesBeforeOriginalText: edhrecLazyPrices && edhrecLazyOriginalText ? edhrecLazyPrices.getBoundingClientRect().bottom <= edhrecLazyOriginalText.getBoundingClientRect().top : false,
       edhrecLazyOverlayBeforeOriginalText: edhrecLazyOriginalText && edhrecLazyOverlay ? edhrecLazyOverlay.getBoundingClientRect().bottom <= edhrecLazyOriginalText.getBoundingClientRect().top : false,
-      edhrecLazyOverlayParentIsPriceParent: edhrecLazyOverlay && edhrecLazyPrices ? edhrecLazyOverlay.parentElement === edhrecLazyPrices.parentElement : false,
+      edhrecLazyOverlayParentIsCardContainer: edhrecLazyOverlay ? edhrecLazyOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       taggerOverlayCount: taggerCard ? taggerCard.querySelectorAll(".edhrec-ja-overlay").length : -1,
       taggerImageState: taggerImage ? taggerImage.dataset.edhrecJaState || "" : "",
       taggerOverlayParentIsGridItem: taggerOverlay ? taggerOverlay.parentElement.className.indexOf("card-grid-item") !== -1 : false,
