@@ -72,7 +72,7 @@ test("layout fixture works in a real browser", async (t) => {
 
   assert.equal(ready.commanderOverlayCount, 0);
   assert.deepEqual(ready.cardOverlays, [1, 1, 1, 1, 1]);
-  assert.equal(ready.imageOverlapCount, 0);
+  assert.equal(ready.imageOverlapCount, 0, JSON.stringify(ready.imageOverlapDetails));
   assert.equal(ready.nativeMetaOverlapCount, 0);
   assert.equal(ready.edhrecOriginalTextOverlapCount, 0);
   assert.deepEqual(ready.overlayBeforeNativeMeta, [true, true, true, true, true]);
@@ -82,8 +82,10 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.edhrecOverlayBeforeOriginalText, true);
   assert.equal(ready.edhrecMockOverlayParentIsCardContainer, true);
   assert.equal(ready.edhrecLazyOverlayAfterImage, true);
+  assert.equal(ready.edhrecLazyOverlayBeforePrices, true);
+  assert.equal(ready.edhrecLazyPricesBeforeOriginalText, true);
   assert.equal(ready.edhrecLazyOverlayBeforeOriginalText, true);
-  assert.equal(ready.edhrecLazyOverlayParentIsCardContainer, true);
+  assert.equal(ready.edhrecLazyOverlayParentIsImageContainer, true);
   assert.equal(ready.taggerOverlayCount, 1);
   assert.equal(ready.taggerImageState, "replaced");
   assert.equal(ready.taggerOverlayParentIsGridItem, true);
@@ -92,8 +94,16 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.taggerAlt, "爆発的植生");
   assert.equal(ready.taggerLabel, "爆発的植生");
   assert.equal(ready.taggerEnglish, "Explosive Vegetation");
+  assert.equal(ready.scryfallSearchOverlayCount, 1);
+  assert.equal(ready.scryfallSearchImageState, "replaced");
+  assert.equal(ready.scryfallSearchOverlayParentIsGridItem, true);
+  assert.equal(ready.scryfallSearchOverlayAfterCard, true);
+  assert.equal(ready.scryfallSearchEnglish, "Aftermath Analyst");
+  assert.ok(ready.fetchLog.some((url) => url.includes("/cards/mock/007/ja")));
+  assert.ok(ready.fetchLog.some((url) => url.includes("/cards/eoc/91/ja")));
+  assert.equal(ready.fetchLog.some((url) => url.includes("cards/search") && url.includes("Aftermath")), false);
   assert.equal(ready.nameButtonCount, 0);
-  assert.deepEqual(ready.copyButtons, Array.from({ length: 8 }, () => (
+  assert.deepEqual(ready.copyButtons, Array.from({ length: 9 }, () => (
     { text: "", aria: "カード名をコピー", title: "カード名をコピー", svgCount: 1, icon: "copy" }
   )));
   assert.deepEqual(ready.scryfallLinks.map((link) => ({
@@ -102,15 +112,15 @@ test("layout fixture works in a real browser", async (t) => {
     title: link.title,
     svgCount: link.svgCount,
     icon: link.icon
-  })), Array.from({ length: 8 }, () => (
+  })), Array.from({ length: 9 }, () => (
     { text: "", aria: "Scryfallで開く", title: "Scryfallで開く", svgCount: 1, icon: "external" }
   )));
   assert.ok(ready.scryfallLinks.every((link) => /^https:\/\/scryfall\.com\/card\//.test(link.href)));
   assert.ok(ready.overlayHeights.every((height) => height <= 36), `overlay heights: ${ready.overlayHeights.join(",")}`);
-  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 8 }, () => (
+  assert.deepEqual(ready.compactControlCounts, Array.from({ length: 9 }, () => (
     { scryfall: 1, shops: 5, copies: 1, stars: 1 }
   )));
-  assert.equal(ready.shopLinkCount, 40);
+  assert.equal(ready.shopLinkCount, 45);
   assert.deepEqual(ready.shopLabels, ["晴", "BM", "SS", "東", "メ"]);
   assert.match(ready.shopHrefs[1], /^https:\/\/www\.bigweb\.co\.jp\/ja\/products\/mtg\/list\?name=Sol(\+|%20)Ring$/);
   assert.match(ready.shopHrefs[3], /^https:\/\/tokyomtg\.com\/cardpage\.html\?query=Sol(\+|%20)Ring&p=q$/);
@@ -122,7 +132,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-04.7"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-05.1"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -176,7 +186,8 @@ function pageStateExpression() {
     const edhrecMockImageContainer = document.querySelector(".edhrec-card-mock .CardImage_container__mock");
     const edhrecMockOverlay = document.querySelector(".edhrec-card-mock .edhrec-ja-overlay");
     const edhrecLazyOriginalText = document.querySelector(".edhrec-lazy-original-text");
-    const edhrecLazyImageContainer = document.querySelector(".edhrec-card-mock-lazy .lazyload-wrapper");
+    const edhrecLazyPrices = document.querySelector(".edhrec-lazy-prices");
+    const edhrecLazyImageContainer = document.querySelector(".edhrec-card-mock-lazy .CardImage_container__mock a");
     const edhrecLazyOverlay = document.querySelector(".edhrec-card-mock-lazy .edhrec-ja-overlay");
     const backFaceCard = document.querySelector(".back-face-card");
     const backFaceImage = backFaceCard && backFaceCard.querySelector("img");
@@ -186,17 +197,33 @@ function pageStateExpression() {
     const taggerImage = taggerCard && taggerCard.querySelector("img");
     const taggerTagRow = taggerCard && taggerCard.querySelector(".tag-row");
     const taggerOverlay = taggerCard && taggerCard.querySelector(".edhrec-ja-overlay");
+    const scryfallSearchCard = document.querySelector(".scryfall-search-card-item");
+    const scryfallSearchLink = scryfallSearchCard && scryfallSearchCard.querySelector("a.card-grid-item-card");
+    const scryfallSearchImage = scryfallSearchCard && scryfallSearchCard.querySelector("img");
+    const scryfallSearchOverlay = scryfallSearchCard && scryfallSearchCard.querySelector(".edhrec-ja-overlay");
     const overlaps = (one, two) => {
       if (!one || !two) return false;
       const a = one.getBoundingClientRect();
       const b = two.getBoundingClientRect();
       return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
     };
-    const imageOverlapCount = overlays.filter((overlay) => {
+    const imageOverlapDetails = [];
+    const imageOverlapCount = overlays.filter((overlay, overlayIndex) => {
       const a = overlay.getBoundingClientRect();
-      return images.some((img) => {
+      return images.some((img, imageIndex) => {
         const b = img.getBoundingClientRect();
-        return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+        const hit = !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+        if (hit) {
+          imageOverlapDetails.push({
+            overlayIndex,
+            imageIndex,
+            overlayParentClass: String(overlay.parentElement && overlay.parentElement.className || ""),
+            imageParentClass: String(img.parentElement && img.parentElement.className || ""),
+            imageAlt: img.alt,
+            overlayLabel: overlay.dataset.jaLabel || ""
+          });
+        }
+        return hit;
       });
     }).length;
     const nativeMetaOverlapCount = overlays.filter((overlay) => {
@@ -209,12 +236,14 @@ function pageStateExpression() {
     const edhrecOriginalTextOverlapCount = edhrecMockOverlay && edhrecOriginalText && overlaps(edhrecMockOverlay, edhrecOriginalText) ? 1 : 0;
     const replaced = cardishImages.map((img) => img.dataset.edhrecJaState || "");
     const firstShopLinks = Array.from(document.querySelectorAll(".card-shell:first-of-type .edhrec-ja-shop-link"));
+    const layoutReady = imageOverlapCount === 0 && nativeMetaOverlapCount === 0 && edhrecOriginalTextOverlapCount === 0;
     return {
-      ready: cardishImages.length === 11 && replaced.every((state) => state === "replaced") && overlays.length >= 8,
+      ready: cardishImages.length === 12 && replaced.every((state) => state === "replaced") && overlays.length >= 9 && layoutReady,
       commanderOverlayCount: commander ? commander.querySelectorAll(".edhrec-ja-overlay").length : -1,
       commanderAlts: commander ? Array.from(commander.querySelectorAll("img")).map((img) => img.alt) : [],
       cardOverlays: cards.map((card) => card.querySelectorAll(".edhrec-ja-overlay").length),
       imageOverlapCount,
+      imageOverlapDetails,
       nativeMetaOverlapCount,
       overlayBeforeNativeMeta: cards.map((card) => {
         const meta = card.querySelector(".native-meta");
@@ -238,8 +267,10 @@ function pageStateExpression() {
       edhrecOverlayBeforeOriginalText: edhrecOriginalText && edhrecMockOverlay ? edhrecMockOverlay.getBoundingClientRect().bottom <= edhrecOriginalText.getBoundingClientRect().top : false,
       edhrecMockOverlayParentIsCardContainer: edhrecMockOverlay ? edhrecMockOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
       edhrecLazyOverlayAfterImage: edhrecLazyOverlay && edhrecLazyImageContainer ? edhrecLazyImageContainer.getBoundingClientRect().bottom <= edhrecLazyOverlay.getBoundingClientRect().top : false,
+      edhrecLazyOverlayBeforePrices: edhrecLazyPrices && edhrecLazyOverlay ? edhrecLazyOverlay.getBoundingClientRect().bottom <= edhrecLazyPrices.getBoundingClientRect().top : false,
+      edhrecLazyPricesBeforeOriginalText: edhrecLazyPrices && edhrecLazyOriginalText ? edhrecLazyPrices.getBoundingClientRect().bottom <= edhrecLazyOriginalText.getBoundingClientRect().top : false,
       edhrecLazyOverlayBeforeOriginalText: edhrecLazyOriginalText && edhrecLazyOverlay ? edhrecLazyOverlay.getBoundingClientRect().bottom <= edhrecLazyOriginalText.getBoundingClientRect().top : false,
-      edhrecLazyOverlayParentIsCardContainer: edhrecLazyOverlay ? edhrecLazyOverlay.parentElement.className.indexOf("Card_container") !== -1 : false,
+      edhrecLazyOverlayParentIsImageContainer: edhrecLazyOverlay ? edhrecLazyOverlay.parentElement.className.indexOf("CardImage_container") !== -1 : false,
       taggerOverlayCount: taggerCard ? taggerCard.querySelectorAll(".edhrec-ja-overlay").length : -1,
       taggerImageState: taggerImage ? taggerImage.dataset.edhrecJaState || "" : "",
       taggerOverlayParentIsGridItem: taggerOverlay ? taggerOverlay.parentElement.className.indexOf("card-grid-item") !== -1 : false,
@@ -248,6 +279,13 @@ function pageStateExpression() {
       taggerAlt: taggerImage ? taggerImage.alt : "",
       taggerLabel: taggerOverlay ? taggerOverlay.dataset.jaLabel : "",
       taggerEnglish: taggerOverlay ? taggerOverlay.dataset.englishName : "",
+      scryfallSearchOverlayCount: scryfallSearchCard ? scryfallSearchCard.querySelectorAll(".edhrec-ja-overlay").length : -1,
+      scryfallSearchImageState: scryfallSearchImage ? scryfallSearchImage.dataset.edhrecJaState || "" : "",
+      scryfallSearchOverlayParentIsGridItem: scryfallSearchOverlay ? scryfallSearchOverlay.parentElement.className.indexOf("card-grid-item") !== -1 : false,
+      scryfallSearchOverlayAfterCard: scryfallSearchOverlay && scryfallSearchLink ? scryfallSearchLink.getBoundingClientRect().bottom <= scryfallSearchOverlay.getBoundingClientRect().top : false,
+      scryfallSearchAlt: scryfallSearchImage ? scryfallSearchImage.alt : "",
+      scryfallSearchLabel: scryfallSearchOverlay ? scryfallSearchOverlay.dataset.jaLabel : "",
+      scryfallSearchEnglish: scryfallSearchOverlay ? scryfallSearchOverlay.dataset.englishName : "",
       nameButtonCount: document.querySelectorAll(".edhrec-ja-name-button").length,
       copyButtons: overlays.map((overlay) => {
         const button = overlay.querySelector(".edhrec-ja-chip-button");
@@ -291,6 +329,7 @@ function pageStateExpression() {
       wideThumbnailState: wideThumbnail ? wideThumbnail.querySelector("img").dataset.edhrecJaState || "" : "",
       battleThumbnailOverlayCount: battleThumbnail ? battleThumbnail.querySelectorAll(".edhrec-ja-overlay").length : -1,
       battleThumbnailState: battleThumbnail ? battleThumbnail.querySelector("img").dataset.edhrecJaState || "" : "",
+      fetchLog: window.fetchLog || [],
       replaced
     };
   })()`;

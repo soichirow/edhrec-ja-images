@@ -6,7 +6,7 @@
 ## 現在の表示仕様
 
 - EDHRECのカード画像を、Scryfallの日本語印刷版画像へ差し替える
-- Scryfall Taggerのカードタグ一覧でも、カード画像を日本語印刷版画像へ差し替える
+- Scryfall TaggerとScryfall検索結果のカード一覧でも、カード画像を日本語印刷版画像へ差し替える
 - 日本語印刷版がない場合は、英語通常版へフォールバックする
 - 両面カードは、EDHRECが裏面画像を出している場合に裏面を選ぶ
 - ショーケース、拡張アート、ボーダーレス、プロモ系などはなるべく避ける
@@ -22,10 +22,10 @@ EDHREC本来のカード名、価格、synergyなど
 ```
 
 通常のカードリンクでは、操作バーをリンク内の画像直後へ入れます。
-EDHREC固有の `Card_container` では、`CardImage_container` または画像を含む直下要素の直後へ入れます。
-Scryfall Taggerの `card-grid-item` では、固定比率のカードリンクとタグ行が重ならないように、操作バーをカードリンクの直後へ入れます。
+EDHREC固有の `Card_container` では、価格行が画像コンテナ内にある場合は価格行の直前へ入れます。価格行が見つからない場合は、`CardImage_container` または画像を含む直下要素の直後へ入れます。
+Scryfall系ページの `card-grid-item` では、固定比率のカードリンクとタグ行や周辺表示が重ならないように、操作バーをカードリンクの直後へ入れます。`https://scryfall.com/search?q=otag%3Amulti-land-ramp&unique=cards&utm_source=tagger` のような検索結果ページでは、`/card/{set}/{collector}` 形式のリンクから `https://api.scryfall.com/cards/{set}/{collector}/ja` を先に引き、日本語印刷版があれば名前検索を挟まずに差し替えます。
 実サイトでは `Card_container` 自体がカードリンクになる場合と、`lazyload-wrapper` の内側に `CardImage_container` とカードリンクが入る場合があります。
-このときは内側の `CardImage_container` ではなく、カード直下の `lazyload-wrapper` の直後へ操作バーを入れることをE2Eで守ります。
+このときは画像、操作バー、価格行、EDHREC本来のカード名やsynergy表示の順になることをE2Eで守ります。
 同じカード枠に表面と裏面の画像が両方ある場合でも、操作バーは1つだけ表示します。
 この順序を変えると、EDHREC本体のお気に入り表示や元のカード名と重なりやすくなるため、E2Eテストで守っています。
 

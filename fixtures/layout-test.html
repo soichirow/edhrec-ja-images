@@ -127,6 +127,16 @@
       background: #e2e8f0;
     }
 
+    .CardPrices_prices__mock {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 4px 8px;
+      color: #60a5fa;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     .edhrec-card-mock-lazy .lazyload-wrapper {
       position: relative;
     }
@@ -167,18 +177,21 @@
       font-size: 19px;
     }
 
-    .tagger-section {
+    .tagger-section,
+    .scryfall-search-section {
       margin-top: 22px;
     }
 
-    .tagger-section .card-grid {
+    .tagger-section .card-grid,
+    .scryfall-search-section .card-grid {
       display: grid;
       grid-template-columns: 220px;
       gap: 16px;
       margin: 0;
     }
 
-    .tagger-section .card-grid-item {
+    .tagger-section .card-grid-item,
+    .scryfall-search-section .card-grid-item {
       position: relative;
       overflow: visible;
       border-radius: 8px;
@@ -187,21 +200,24 @@
       box-shadow: 0 2px 10px rgba(15, 23, 42, .2);
     }
 
-    .tagger-section .invisible-name {
+    .tagger-section .invisible-name,
+    .scryfall-search-section .card-grid-item-invisible-label {
       position: absolute;
       z-index: 1;
       color: transparent;
       pointer-events: none;
     }
 
-    .tagger-section .card {
+    .tagger-section .card,
+    .scryfall-search-section .card-grid-item-card {
       display: block;
       position: relative;
       height: 0;
       padding-bottom: 139%;
     }
 
-    .tagger-section .card img {
+    .tagger-section .card img,
+    .scryfall-search-section .card-grid-item-card img {
       position: absolute;
       left: 0;
       top: 0;
@@ -290,6 +306,7 @@
             <a href="/cards/lightning-bolt" aria-label="Lightning Bolt">
               <img alt="Lightning Bolt" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000006.jpg">
             </a>
+            <div class="CardPrices_prices__mock edhrec-lazy-prices"><span>€0.68</span><span>$1.29</span><span>$0.45</span></div>
           </div>
         </div>
         <div class="CardLabel_container__mock edhrec-lazy-original-text"><span>€0.18</span> <strong>72%</strong> synergy</div>
@@ -299,10 +316,24 @@
       <div class="card-grid">
         <div class="card-grid-item tagger-card-item">
           <div class="invisible-name" aria-hidden="true">Explosive Vegetation</div>
-          <a class="card" href="/card/mock/007" rel="nofollow">
+          <a class="card" href="https://tagger.scryfall.com/card/mock/007" rel="nofollow">
             <img alt="Explosive Vegetation" src="https://cards.scryfall.io/normal/front/0/0/00000000-0000-0000-0000-000000000007.jpg">
           </a>
           <div class="tag-row"><span>★</span> multi land ramp</div>
+        </div>
+      </div>
+    </section>
+    <section class="scryfall-search-section" aria-label="Scryfall search card grid mock">
+      <div class="card-grid">
+        <div class="card-grid-item scryfall-search-card-item" data-card-id="66f135b4-8cb3-4a4e-86ae-81a3cf4b7259">
+          <a class="card-grid-item-card" href="https://scryfall.com/card/eoc/91/aftermath-analyst">
+            <span class="card-grid-item-invisible-label" aria-hidden="true">Aftermath Analyst</span>
+            <div class="card-grid-item-card-faces">
+              <div class="card-grid-item-card-front">
+                <img class="card eoc border-black" title="Aftermath Analyst (Edge of Eternities Commander #91)" alt="Aftermath Analyst (Edge of Eternities Commander #91)" src="https://cards.scryfall.io/normal/front/6/6/66f135b4-8cb3-4a4e-86ae-81a3cf4b7259.jpg">
+              </div>
+            </div>
+          </a>
         </div>
       </div>
     </section>
@@ -328,7 +359,9 @@
       return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     }
 
+    window.fetchLog = [];
     window.fetch = function (url) {
+      window.fetchLog.push(String(url));
       var requested = decodeURIComponent(String(url)).replace(/\+/g, " ");
       var names = {
         "Sol Ring": "太陽の指輪",
@@ -337,6 +370,7 @@
         "Counterspell": "対抗呪文",
         "Lightning Bolt": "稲妻",
         "Explosive Vegetation": "爆発的植生",
+        "Aftermath Analyst": "事件現場の分析者",
         "Arcane Signet": "秘儀の印鑑",
         "Invasion of Zendikar": "ゼンディカーへの侵攻"
       };
@@ -363,6 +397,7 @@
         "Counterspell": "#7c3aed",
         "Lightning Bolt": "#dc2626",
         "Explosive Vegetation": "#15803d",
+        "Aftermath Analyst": "#047857",
         "Arcane Signet": "#0f766e",
         "Invasion of Zendikar": "#16a34a"
       };
@@ -370,13 +405,32 @@
         "c045ccb2-28d1-4bbe-9feb-3e86988fd24d": "The Sixth Doctor",
         "ad40ec4f-37e7-4e6d-b47b-8b13ea2c9157": "Susan Foreman"
       };
+      var exactPrints = {
+        "/cards/mock/007/ja": "Explosive Vegetation",
+        "/cards/eoc/91/ja": "Aftermath Analyst"
+      };
+      var exactPrintKey = Object.keys(exactPrints).find(function (path) { return requested.indexOf(path) !== -1; });
       var idKey = Object.keys(ids).find(function (id) { return requested.indexOf(id) !== -1; });
-      var key = idKey ? ids[idKey] : Object.keys(Object.assign({}, names, englishOnly, doubleFaced)).find(function (name) { return requested.indexOf(name) !== -1; });
+      var key = exactPrintKey ? exactPrints[exactPrintKey] : idKey ? ids[idKey] : Object.keys(Object.assign({}, names, englishOnly, doubleFaced)).find(function (name) { return requested.indexOf(name) !== -1; });
       var isEnglishSearch = requested.indexOf("lang:en") !== -1;
       return Promise.resolve({
         ok: true,
         status: 200,
         json: function () {
+          if (exactPrintKey) {
+            var printedExact = names[key] || key;
+            var exactParts = exactPrintKey.split("/");
+            return Promise.resolve({
+              lang: "ja",
+              layout: "normal",
+              name: key,
+              printed_name: printedExact,
+              scryfall_uri: "https://scryfall.com/card/" + exactParts[2] + "/" + exactParts[3] + "/ja/mock",
+              image_uris: {
+                normal: cardArt(printedExact, colors[key] || "#334155")
+              }
+            });
+          }
           if (idKey) {
             return Promise.resolve({
               lang: "en",

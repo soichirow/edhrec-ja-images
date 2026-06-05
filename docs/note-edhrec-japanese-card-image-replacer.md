@@ -104,7 +104,7 @@ Scryfallの公式FAQでは、`api.scryfall.com` へのアクセスを10リクエ
 画像がすぐに変わらないときや、操作バーが出ないときは、まず次を確認してみてください。
 
 - Tampermonkeyでスクリプトが有効になっている
-- 対象URLが `https://edhrec.com/*`、`https://www.edhrec.com/*`、`https://tagger.scryfall.com/*` のいずれかである
+- 対象URLが `https://edhrec.com/*`、`https://www.edhrec.com/*`、`https://tagger.scryfall.com/*`、`https://scryfall.com/search*` のいずれかである
 - ページを再読み込みしてみる
 - ブラウザ拡張や広告ブロッカーが `api.scryfall.com` への通信を止めていない
 - Greasy Forkの最新版を使っている

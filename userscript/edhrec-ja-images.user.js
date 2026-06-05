@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-04.7
+// @version      2026-06-05.1
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -10,9 +10,12 @@
 // @match        https://edhrec.com/*
 // @match        https://www.edhrec.com/*
 // @match        https://tagger.scryfall.com/*
+// @match        https://scryfall.com/search*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=edhrec.com
 // @homepageURL  https://github.com/soichirow/edhrec-ja-images
 // @supportURL   https://github.com/soichirow/edhrec-ja-images/issues
+// @downloadURL  https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edhrec-ja-images.user.js
+// @updateURL    https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edhrec-ja-images.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -22,7 +25,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-04.7";
+  const SCRIPT_VERSION = "2026-06-05.1";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -32,8 +35,9 @@
   const MAX_CACHE_ENTRIES = 800;
   const MAX_API_RETRIES = 2;
   const API_HEADERS = { Accept: "application/json;q=0.9,*/*;q=0.8" };
-  const imageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, a[href^="/card/"] img, a[href^="https://tagger.scryfall.com/card/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
-  const linkSelector = 'a[href*="/cards/"], a[href*="/commanders/"], a[href^="/card/"], a[href^="https://tagger.scryfall.com/card/"]';
+  const site = currentSiteConfig();
+  const imageSelector = site.imageSelector;
+  const linkSelector = site.linkSelector;
   const skipTitle = /^(abstract performance|expansion algorithm|marvel super heroes|planar engineering|reality fracture|secret lair drop|secrets of strixhaven|teenage mutant ninja turtles|the hobbit)$/i;
   const skipWord = /^(archidekt|cardsphere|commander spellbook|crossword|edhrec|fabrec|multi|mtgstocks|moxfield|preview|scryfall|spellify)$/i;
   const cache = readCache();
@@ -45,6 +49,36 @@
   let last = 0;
 
   console.info("[EDHREC JA Images] version " + SCRIPT_VERSION);
+
+  function currentSiteConfig() {
+    const host = String(location.hostname || "");
+    const scryfallImageSelector = 'a.card-grid-item-card img, a[href^="/card/"] img, a[href^="https://scryfall.com/card/"] img, a[href^="https://tagger.scryfall.com/card/"] img, img[src*="cards.scryfall.io"], img[data-src*="cards.scryfall.io"]';
+    const scryfallLinkSelector = 'a.card-grid-item-card, a[href^="/card/"], a[href^="https://scryfall.com/card/"], a[href^="https://tagger.scryfall.com/card/"]';
+    const edhrecImageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
+    const edhrecLinkSelector = 'a[href*="/cards/"], a[href*="/commanders/"]';
+    if (/(^|\.)scryfall\.com$/i.test(host)) {
+      return {
+        name: "scryfall",
+        imageSelector: scryfallImageSelector,
+        linkSelector: scryfallLinkSelector,
+        gridItemImageSelector: scryfallImageSelector,
+      };
+    }
+    if (/^(127\.0\.0\.1|localhost)$/i.test(host)) {
+      return {
+        name: "test",
+        imageSelector: edhrecImageSelector + ", " + scryfallImageSelector,
+        linkSelector: edhrecLinkSelector + ", " + scryfallLinkSelector,
+        gridItemImageSelector: scryfallImageSelector,
+      };
+    }
+    return {
+      name: "edhrec",
+      imageSelector: edhrecImageSelector,
+      linkSelector: edhrecLinkSelector,
+      gridItemImageSelector: "",
+    };
+  }
 
   /**
    * @typedef {Object} CardHit
@@ -92,13 +126,42 @@
 
   function nameOfImage(img) {
     const link = img.closest ? img.closest(linkSelector) : null;
-    return normalizeName(img.getAttribute("alt") || img.getAttribute("title")) || (link ? nameOfLink(link) : "");
+    const imageName = normalizeName(img.getAttribute("alt") || img.getAttribute("title"));
+    const linkName = link ? nameOfLink(link) : "";
+    return site.name === "scryfall" ? linkName || imageName : imageName || linkName;
   }
 
   function scryfallIdOfImage(img) {
     const src = img ? img.currentSrc || img.src || img.getAttribute("data-src") || "" : "";
     const match = String(src).match(/cards\.scryfall\.io\/(?:small|normal|large|png)\/(?:front|back)\/[0-9a-f]\/[0-9a-f]\/([0-9a-f-]{36})/i);
     return match ? match[1] : "";
+  }
+
+  function printOfScryfallLink(link) {
+    if (!link || (site.name !== "scryfall" && site.name !== "test")) return null;
+    let url;
+    let parts;
+    try {
+      url = new URL(link.getAttribute("href") || "", location.href);
+    } catch (error) {
+      return null;
+    }
+    if (!/(^|\.)scryfall\.com$/i.test(url.hostname)) return null;
+    parts = url.pathname.split("/").filter(Boolean);
+    if (parts[0] !== "card" || !parts[1] || !parts[2]) return null;
+    return {
+      set: decodePathPart(parts[1]),
+      number: decodePathPart(parts[2]),
+      name: nameOfLink(link),
+    };
+  }
+
+  function decodePathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch (error) {
+      return value;
+    }
   }
 
   function faceIndexOfImage(img) {
@@ -267,6 +330,37 @@
     return pending[key];
   }
 
+  function getByScryfallPrint(print, faceIndex) {
+    faceIndex = normalFaceIndex(faceIndex);
+    const key = "print:" + String(print && print.set || "").toLowerCase() + ":" + String(print && print.number || "").toLowerCase() + (faceIndex ? ":face:" + faceIndex : "");
+    if (!print || !print.set || !print.number) return Promise.resolve(null);
+    if (fresh(key)) return Promise.resolve(cache[key].value);
+    if (pending[key]) return pending[key];
+    pending[key] = throttledApiJson("https://api.scryfall.com/cards/" + encodeURIComponent(print.set) + "/" + encodeURIComponent(print.number) + "/ja").then(function (card) {
+      return card && cardImage(card, faceIndex) ? hitFromCard(card, print.name, faceIndex) : null;
+    }).then(function (hit) {
+      return remember(key, hit);
+    }).catch(function () {
+      return remember(key, null);
+    }).finally(function () {
+      delete pending[key];
+    });
+    return pending[key];
+  }
+
+  function lookupForImage(img, link, name, scryfallId, faceIndex) {
+    const print = printOfScryfallLink(link);
+    if (print) {
+      return getByScryfallPrint(print, faceIndex).then(function (hit) {
+        if (hit) return hit;
+        if (scryfallId) return getByScryfallId(scryfallId, faceIndex);
+        return name ? getJapanese(name, { fallback: true, faceIndex: faceIndex }) : null;
+      });
+    }
+    if (name) return getJapanese(name, { fallback: true, faceIndex: faceIndex });
+    return getByScryfallId(scryfallId, faceIndex);
+  }
+
   function hitFromCard(card, fallbackName, faceIndex) {
     const face = cardFace(card, faceIndex);
     return {
@@ -400,10 +494,11 @@
     Array.prototype.forEach.call(document.querySelectorAll(linkSelector), function (link) {
       if (count >= MAX_PREFETCH_PER_SCAN || link.dataset.edhrecJaPrefetch) return;
       const name = nameOfLink(link);
+      const print = printOfScryfallLink(link);
       if (!name) return;
       link.dataset.edhrecJaPrefetch = "1";
       count += 1;
-      getJapanese(name, { fallback: false }).then(function (hit) {
+      (print ? getByScryfallPrint(print, 0) : getJapanese(name, { fallback: false })).then(function (hit) {
         if (!hit || !hit.src || imageCount >= MAX_IMAGE_PRELOAD_PER_SCAN) return;
         imageCount += 1;
         preloadImage(hit.src);
@@ -428,7 +523,7 @@
     const faceIndex = faceIndexOfImage(img);
     if (!name && !scryfallId) return;
     img.dataset.edhrecJaState = "pending";
-    (name ? getJapanese(name, { fallback: true, faceIndex: faceIndex }) : getByScryfallId(scryfallId, faceIndex)).then(function (hit) {
+    lookupForImage(img, link, name, scryfallId, faceIndex).then(function (hit) {
       if (!hit) {
         img.dataset.edhrecJaState = "missing";
         return;
@@ -499,7 +594,8 @@
       box = existingControlBox(scope);
       if (box) {
         pruneControlBoxes(scope, box);
-        if (!controlBoxLooksPlaced(box)) insertControlBox(host, img, box);
+        if (!controlBoxLooksPlaced(host, img, box)) insertControlBox(host, img, box);
+        settleControlBoxSpacing(box);
         return;
       }
     }
@@ -566,12 +662,7 @@
     renderShopLinks(shopRow, englishName, hit.label);
     insertControlBox(host, img, box);
     pruneControlBoxes(scope, box);
-    separateFromFollowingContent(box);
-    if (window.requestAnimationFrame) {
-      window.requestAnimationFrame(function () {
-        separateFromFollowingContent(box);
-      });
-    }
+    settleControlBoxSpacing(box);
     updateFavoriteButton(favorite, englishName);
   }
 
@@ -586,7 +677,15 @@
     });
   }
 
-  function controlBoxLooksPlaced(box) {
+  function controlBoxLooksPlaced(host, img, box) {
+    const cardContainer = edhrecCardContainer(host);
+    let imageContainer;
+    let prices;
+    if (cardContainer) {
+      imageContainer = nestedEdhrecImageContainer(host, img, cardContainer);
+      prices = edhrecPricesInImageContainer(imageContainer);
+      if (prices) return Boolean(box && box.parentNode === prices.parentNode && box.nextSibling === prices);
+    }
     return Boolean(box && box.previousElementSibling && containsImage(box.previousElementSibling));
   }
 
@@ -653,8 +752,8 @@
   function controlScope(host) {
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) return cardContainer;
-    const taggerContainer = taggerCardGridItem(host);
-    if (taggerContainer) return taggerContainer;
+    const scryfallContainer = scryfallCardGridItem(host);
+    if (scryfallContainer) return scryfallContainer;
     return metadataSiblingAfter(host) ? host.parentNode : host;
   }
 
@@ -675,10 +774,11 @@
     return Boolean(node && node.querySelector && node.querySelector('[class*="CardLabel"],[class*="CardPrice"],[class*="Card_nameWrapper"]'));
   }
 
-  function taggerCardGridItem(host) {
+  function scryfallCardGridItem(host) {
+    if (site.name !== "scryfall" && site.name !== "test") return null;
     const container = host && host.closest ? host.closest(".card-grid-item") : null;
     if (!container || !container.querySelector) return null;
-    return container.querySelector("a.card img") ? container : null;
+    return container.querySelector(site.gridItemImageSelector) ? container : null;
   }
 
   function edhrecImageContainer(host, cardContainer) {
@@ -692,6 +792,27 @@
     }
     if (directChild && containsImage(directChild)) return directChild;
     return directImageChild(cardContainer);
+  }
+
+  function nestedEdhrecImageContainer(host, img, cardContainer) {
+    let node = host || img;
+    while (node && node !== cardContainer) {
+      if (/\bCardImage_container/.test(String(node.className || "")) && containsImage(node)) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function edhrecPricesInImageContainer(imageContainer) {
+    const candidates = imageContainer && imageContainer.querySelectorAll ? imageContainer.querySelectorAll('[class*="CardPrices"],[class*="Prices"],[class*="prices"]') : [];
+    for (let index = 0; index < candidates.length; index += 1) {
+      if (isEdhrecPriceElement(candidates[index])) return candidates[index];
+    }
+    return null;
+  }
+
+  function isEdhrecPriceElement(node) {
+    return Boolean(node && /(?:CardPrices|Prices|prices)/.test(String(node.className || "")) && !containsImage(node) && text(node.textContent));
   }
 
   function containsImage(node) {
@@ -732,17 +853,24 @@
     if (!host || !img || !box || host === img) return;
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) {
+      const nestedImageContainer = nestedEdhrecImageContainer(host, img, cardContainer);
+      const prices = edhrecPricesInImageContainer(nestedImageContainer);
+      if (prices && prices.parentNode) {
+        if (box.parentNode === prices.parentNode && box.nextSibling === prices) return;
+        prices.parentNode.insertBefore(box, prices);
+        return;
+      }
       const imageContainer = edhrecImageContainer(host, cardContainer);
       const reference = imageContainer && imageContainer.parentNode === cardContainer ? imageContainer.nextSibling : cardContainer.firstChild;
       if (box.parentNode === cardContainer && box === reference) return;
       cardContainer.insertBefore(box, reference);
       return;
     }
-    const taggerContainer = taggerCardGridItem(host);
-    if (taggerContainer && host.parentNode === taggerContainer) {
+    const scryfallContainer = scryfallCardGridItem(host);
+    if (scryfallContainer && host.parentNode === scryfallContainer) {
       const reference = host.nextSibling;
       if (reference === box) return;
-      taggerContainer.insertBefore(box, reference);
+      scryfallContainer.insertBefore(box, reference);
       return;
     }
     const before = metadataSiblingAfter(host);
@@ -771,6 +899,52 @@
     if (overlap > 0) {
       box.style.marginBottom = overlap + 2 + "px";
     }
+    separateFromCardFollowingContent(box);
+  }
+
+  function settleControlBoxSpacing(box) {
+    separateFromFollowingContent(box);
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(function () {
+        separateFromFollowingContent(box);
+      });
+    }
+    setTimeout(function () {
+      separateFromFollowingContent(box);
+    }, 50);
+    setTimeout(function () {
+      separateFromFollowingContent(box);
+    }, 250);
+  }
+
+  function separateFromCardFollowingContent(box) {
+    const cardContainer = closestEdhrecCardContainer(box);
+    const directChild = directChildOf(cardContainer, box);
+    const next = directChild && directChild.nextElementSibling;
+    const spacer = isEdhrecPriceElement(box.nextElementSibling) ? box.nextElementSibling : box;
+    let overlap;
+    if (!cardContainer || !directChild || !next || !spacer || !box.getBoundingClientRect || !next.getBoundingClientRect) return;
+    spacer.style.marginBottom = "";
+    overlap = Math.ceil(spacer.getBoundingClientRect().bottom - next.getBoundingClientRect().top);
+    if (overlap > 0) {
+      spacer.style.marginBottom = overlap + 2 + "px";
+    }
+  }
+
+  function closestEdhrecCardContainer(node) {
+    while (node && node !== document.body) {
+      if (looksLikeEdhrecCardContainer(node)) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function directChildOf(parent, child) {
+    let node = child;
+    while (node && node.parentElement !== parent) {
+      node = node.parentElement;
+    }
+    return node && node.parentElement === parent ? node : null;
   }
 
   function fallbackCopyText(value) {
