@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM request APIs", () =
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-05\.4/);
+  assert.match(source, /@version\s+2026-06-05\.5/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -37,7 +37,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.4"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.5"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -244,6 +244,10 @@ test("userscript stores favorites and renders a favorites panel", () => {
   assert.match(source, /function toggleFavorite/);
   assert.match(source, /function renderFavorites/);
   assert.match(source, /function updateInlineFavoriteButtons/);
+  assert.match(source, /const SPREADSHEET_ROW_SEPARATOR = "\\r\\n"/);
+  assert.match(source, /function clipboardText/);
+  assert.match(source, /function spreadsheetRows/);
+  assert.match(source, /copyText\(spreadsheetRows\(list\.map/);
   assert.match(source, /全部コピー/);
   assert.match(source, /★ お気に入り/);
 });

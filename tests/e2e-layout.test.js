@@ -132,7 +132,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-05.4"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-05.5"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -170,6 +170,35 @@ test("layout fixture works in a real browser", async (t) => {
     svgCount: 1,
     icon: "check"
   });
+
+  const copyAllState = await cdp.evaluate(`(() => new Promise((resolve) => {
+    const stars = Array.from(document.querySelectorAll(".card-shell .edhrec-ja-star-button"));
+    stars.slice(1, 3).forEach((button) => button.click());
+    let written = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (value) => {
+        written = value;
+        return Promise.resolve();
+      } }
+    });
+    document.querySelector(".edhrec-ja-dock-button").click();
+    setTimeout(() => {
+      const labels = Array.from(document.querySelectorAll(".edhrec-ja-favorite-link")).map((link) => link.textContent);
+      document.querySelector(".edhrec-ja-panel-button").click();
+      setTimeout(() => {
+        resolve({
+          labels,
+          written,
+          copied: document.querySelector(".edhrec-ja-panel-button").textContent
+        });
+      }, 100);
+    }, 100);
+  }))()`);
+  assert.equal(copyAllState.labels.length, 3);
+  assert.equal(copyAllState.written, copyAllState.labels.join("\r\n"));
+  assert.ok(copyAllState.written.includes("\r\n"));
+  assert.equal(copyAllState.copied, "コピー済み");
 });
 
 function pageStateExpression() {

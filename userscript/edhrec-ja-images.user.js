@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-05.4
+// @version      2026-06-05.5
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -25,7 +25,8 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-05.4";
+  const SCRIPT_VERSION = "2026-06-05.5";
+  const SPREADSHEET_ROW_SEPARATOR = "\r\n";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -990,8 +991,16 @@
     return ok;
   }
 
+  function clipboardText(value) {
+    const raw = String(value || "");
+    if (/\r|\n/.test(raw)) {
+      return raw.split(/\r\n|\r|\n/).map(text).filter(Boolean).join(SPREADSHEET_ROW_SEPARATOR);
+    }
+    return text(raw);
+  }
+
   function copyText(value) {
-    value = text(value);
+    value = clipboardText(value);
     if (!value) return Promise.resolve(false);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(value).then(function () {
@@ -1001,6 +1010,10 @@
       });
     }
     return Promise.resolve(fallbackCopyText(value));
+  }
+
+  function spreadsheetRows(values) {
+    return values.map(text).filter(Boolean).join(SPREADSHEET_ROW_SEPARATOR);
   }
 
   /**
@@ -1093,7 +1106,7 @@
     copyAll.textContent = "全部コピー";
     copyAll.className = "edhrec-ja-panel-button";
     copyAll.addEventListener("click", function () {
-      copyText(list.map(function (card) { return card.label; }).join("\n")).then(function (ok) {
+      copyText(spreadsheetRows(list.map(function (card) { return card.label; }))).then(function (ok) {
         copyAll.textContent = ok ? "コピー済み" : "失敗";
         setTimeout(function () {
           copyAll.textContent = "全部コピー";
