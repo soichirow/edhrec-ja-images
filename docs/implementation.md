@@ -22,7 +22,7 @@ EDHREC本来のカード名、価格、synergyなど
 ```
 
 通常のカードリンクでは、操作バーをリンク内の画像直後へ入れます。
-EDHREC固有の `Card_container` では、価格行が画像コンテナ内にある場合は価格行の直前へ入れます。価格行が見つからない場合は、`CardImage_container` または画像を含む直下要素の直後へ入れます。
+EDHREC固有の `Card_container` では、価格行が画像コンテナ内または画像を含む `lazyload-wrapper` 内にある場合は価格行の直前へ入れます。価格行が見つからない場合は、`CardImage_container` または画像を含む直下要素の直後へ入れます。
 Scryfall系ページの `card-grid-item` では、固定比率のカードリンクとタグ行や周辺表示が重ならないように、操作バーをカードリンクの直後へ入れます。`https://scryfall.com/search?q=otag%3Amulti-land-ramp&unique=cards&utm_source=tagger` のような検索結果ページでは、`/card/{set}/{collector}` 形式のリンクから `https://api.scryfall.com/cards/{set}/{collector}/ja` を先に引き、日本語印刷版があれば名前検索を挟まずに差し替えます。
 実サイトでは `Card_container` 自体がカードリンクになる場合と、`lazyload-wrapper` の内側に `CardImage_container` とカードリンクが入る場合があります。
 このときは画像、操作バー、価格行、EDHREC本来のカード名やsynergy表示の順になることをE2Eで守ります。
