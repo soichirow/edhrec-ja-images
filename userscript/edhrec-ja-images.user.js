@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-05.3
+// @version      2026-06-05.4
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -16,7 +16,7 @@
 // @supportURL   https://github.com/soichirow/edhrec-ja-images/issues
 // @downloadURL  https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edhrec-ja-images.user.js
 // @updateURL    https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edhrec-ja-images.user.js
-// @grant        none
+// @grant        GM_addStyle
 // @run-at       document-idle
 // ==/UserScript==
 (function () {
@@ -25,7 +25,7 @@
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-05.3";
+  const SCRIPT_VERSION = "2026-06-05.4";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 110;
   const RETRY_AFTER_FALLBACK = 10000;
@@ -1200,9 +1200,7 @@
 
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent = [
+    const css = [
       ".edhrec-ja-overlay{display:flex;flex-direction:row;align-items:center;gap:4px;box-sizing:border-box;width:100%;margin:4px 0 0;padding:3px 5px;border-top:1px solid rgba(96,165,250,.22);border-bottom:1px solid rgba(0,0,0,.28);background:rgba(30,39,47,.94);color:#bfdbfe;font-size:10px;line-height:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);pointer-events:auto;}",
       ".edhrec-ja-overlay svg{display:block;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}",
       ".edhrec-ja-scryfall-link{display:flex;flex:0 0 auto;align-items:center;justify-content:center;width:18px;height:17px;border:1px solid rgba(96,165,250,.32);border-radius:4px;background:rgba(17,24,31,.72);color:#64b5ff;text-decoration:none;box-shadow:none;}",
@@ -1225,7 +1223,28 @@
       ".edhrec-ja-favorite-link:hover{text-decoration:underline;}",
       ".edhrec-ja-remove-button{padding:4px 8px;border:1px solid #fecaca;border-radius:999px;background:#fff1f2;color:#991b1b;font-size:12px;font-weight:650;cursor:pointer;}"
     ].join("");
+
+    if (typeof GM_addStyle === "function") {
+      const added = GM_addStyle(css);
+      if (added && added.setAttribute) {
+        added.setAttribute("id", STYLE_ID);
+      } else {
+        markStylesInjected();
+      }
+      return;
+    }
+
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = css;
     document.head.appendChild(style);
+  }
+
+  function markStylesInjected() {
+    const marker = document.createElement("meta");
+    marker.id = STYLE_ID;
+    marker.setAttribute("data-edhrec-ja-style", "gm-add-style");
+    document.head.appendChild(marker);
   }
 
   scan();

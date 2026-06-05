@@ -11,7 +11,7 @@ test("userscript parses as JavaScript", () => {
   assert.doesNotThrow(() => new vm.Script(source));
 });
 
-test("userscript uses direct replacement without hover or GM APIs", () => {
+test("userscript uses direct replacement without hover or GM request APIs", () => {
   assert.match(source, /img\.src = hit\.src/);
   assert.doesNotMatch(source, /mouseenter|mouseover|GM_xmlhttpRequest/);
 });
@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM APIs", () => {
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-05\.3/);
+  assert.match(source, /@version\s+2026-06-05\.4/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -31,11 +31,13 @@ test("userscript has public distribution metadata", () => {
   assert.match(source, /@supportURL\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images\/issues/);
   assert.match(source, /@downloadURL\s+https:\/\/raw\.githubusercontent\.com\/soichirow\/edhrec-ja-images\/main\/userscript\/edhrec-ja-images\.user\.js/);
   assert.match(source, /@updateURL\s+https:\/\/raw\.githubusercontent\.com\/soichirow\/edhrec-ja-images\/main\/userscript\/edhrec-ja-images\.user\.js/);
+  assert.match(source, /@grant\s+GM_addStyle/);
+  assert.doesNotMatch(source, /@grant\s+none/);
   assert.doesNotMatch(source.split(/\r?\n/).slice(0, 12).join("\n"), /SAFE/);
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.3"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.4"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -203,6 +205,9 @@ test("userscript skips unsupported landscape-oriented Scryfall layouts", () => {
 
 test("userscript uses modern button and panel styling", () => {
   assert.match(source, /function injectStyles/);
+  assert.match(source, /typeof GM_addStyle === "function"/);
+  assert.match(source, /GM_addStyle\(css\)/);
+  assert.match(source, /function markStylesInjected/);
   assert.doesNotMatch(source, /edhrec-ja-name-button/);
   assert.match(source, /edhrec-ja-chip-button/);
   assert.match(source, /edhrec-ja-star-button/);
