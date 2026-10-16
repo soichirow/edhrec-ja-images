@@ -132,7 +132,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-10-16.1"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 20261016.1"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();

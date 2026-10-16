@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM request APIs", () =
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-10-16\.1/);
+  assert.match(source, /@version\s+20261016\.1/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -37,7 +37,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-10-16\.1"/);
+  assert.match(source, /const SCRIPT_VERSION = "20261016\.1"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 

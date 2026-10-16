@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-10-16.1
+// @version      20261016.1
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -26,7 +26,7 @@
   const RATE_KEY = "edhrec-ja-scryfall-last-request-v1";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-10-16.1";
+  const SCRIPT_VERSION = "20261016.1";
   const SPREADSHEET_ROW_SEPARATOR = "\r\n";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
   const REQUEST_GAP = 250;
