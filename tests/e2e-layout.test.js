@@ -65,7 +65,7 @@ test("layout fixture works in a real browser", async (t) => {
     const state = await cdp.evaluate(pageStateExpression());
     lastState = state;
     return state.ready ? state : null;
-  }, 6000).catch((error) => {
+  }, 12000).catch((error) => {
     error.message += `\nLast page state: ${JSON.stringify(lastState)}`;
     throw error;
   });
@@ -132,7 +132,7 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-06-05.5"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 2026-10-16.1"));
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
@@ -199,6 +199,46 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(copyAllState.written, copyAllState.labels.join("\r\n"));
   assert.ok(copyAllState.written.includes("\r\n"));
   assert.equal(copyAllState.copied, "コピー済み");
+
+  // Reproduce the new UI's clipped, absolutely positioned card face.
+  await cdp.evaluate(`(() => {
+    const style = document.createElement('style');
+    style.textContent = '.new-card{width:260px;position:relative}.new_faces{position:relative;height:360px}.new_face{position:absolute;inset:0}.new_image{display:block;position:relative;height:360px;overflow:hidden}.new_image img{position:absolute;inset:0;width:100%;height:100%}.new_image span{position:absolute;left:-9999px}.new_prices{height:28px}';
+    document.head.appendChild(style);
+    const section = document.createElement('section');
+    section.id = 'new-ui';
+    section.innerHTML = '<div class="new-card"><div class="new_faces"><div class="new_face"><div class="new_image"><img alt="" src="https://card-images.edhrec.com/grid/front/a/b/main.webp"><span>Lightning Bolt</span></div></div></div><div class="new_prices">$1.00</div></div><div class="new-card"><div class="new_faces"><div class="new_face"><a class="new_image" href="/cards/sol-ring"><img alt="" src="https://card-images.edhrec.com/grid/front/a/b/linked.webp"><span>Sol Ring</span></a></div></div><div class="new_prices">$2.00</div></div><img class="new-art" width="260" height="360" src="https://card-images.edhrec.com/art/front/a/b/art.webp">';
+    document.body.appendChild(section);
+  })()`);
+  const modern = await poll(async () => {
+    const state = await cdp.evaluate(`(() => {
+      const cards = [...document.querySelectorAll('#new-ui .new-card')];
+      return cards.map(card => {
+        const box = card.querySelector('.edhrec-ja-overlay');
+        const image = card.querySelector('img');
+        return { count: card.querySelectorAll('.edhrec-ja-overlay').length, state: image.dataset.edhrecJaState,
+          label: image.alt, outsideFace: box?.parentElement === card,
+          belowPrice: !!box && box.getBoundingClientRect().top >= card.querySelector('.new_prices').getBoundingClientRect().bottom };
+      });
+    })()`);
+    return state.length === 2 && state.every(c => c.state === 'replaced' && c.count === 1) ? state : null;
+  }, 5000);
+  assert.deepEqual(modern.map(c => c.label), ['稲妻', '太陽の指輪']);
+  assert.ok(modern.every(c => c.outsideFace && c.belowPrice), JSON.stringify(modern));
+  assert.equal(await cdp.evaluate(`document.querySelector('.new-art').hasAttribute('data-edhrec-ja-state')`), false);
+
+  // Reusing an image element on SPA navigation must update its controls too.
+  await cdp.evaluate(`(() => {
+    const image = document.querySelector('#new-ui img');
+    image.parentElement.querySelector('span').textContent = 'Counterspell';
+    image.src = 'https://card-images.edhrec.com/grid/front/a/b/changed.webp';
+  })()`);
+  await poll(async () => await cdp.evaluate(`(() => {
+    const card = document.querySelector('#new-ui .new-card');
+    const box = card.querySelector('.edhrec-ja-overlay');
+    return card.querySelector('img').alt === '対抗呪文' && box?.dataset.englishName === 'Counterspell' && card.querySelectorAll('.edhrec-ja-overlay').length === 1;
+  })()`), 5000);
+
 });
 
 function pageStateExpression() {

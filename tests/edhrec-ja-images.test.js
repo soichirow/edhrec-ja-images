@@ -19,7 +19,7 @@ test("userscript uses direct replacement without hover or GM request APIs", () =
 test("userscript has public distribution metadata", () => {
   assert.match(source, /@name:ja\s+EDHREC 日本語カード画像差し替え/);
   assert.match(source, /@namespace\s+https:\/\/github\.com\/soichirow\/edhrec-ja-images/);
-  assert.match(source, /@version\s+2026-06-05\.5/);
+  assert.match(source, /@version\s+2026-10-16\.1/);
   assert.match(source, /@description:ja\s+EDHREC のカード画像/);
   assert.match(source, /@author\s+soichirow/);
   assert.match(source, /@license\s+MIT/);
@@ -37,7 +37,7 @@ test("userscript has public distribution metadata", () => {
 });
 
 test("userscript logs its installed version for diagnostics", () => {
-  assert.match(source, /const SCRIPT_VERSION = "2026-06-05\.5"/);
+  assert.match(source, /const SCRIPT_VERSION = "2026-10-16\.1"/);
   assert.match(source, /console\.info\("\[EDHREC JA Images\] version " \+ SCRIPT_VERSION\)/);
 });
 
@@ -64,7 +64,7 @@ test("userscript coalesces duplicate lookups", () => {
 
 test("userscript keeps persistent cache and rate limit safeguards", () => {
   assert.match(source, /localStorage\.setItem\(CACHE_KEY/);
-  assert.match(source, /const REQUEST_GAP = 110/);
+  assert.match(source, /const REQUEST_GAP = 250/);
   assert.match(source, /const RETRY_AFTER_FALLBACK = 10000/);
   assert.match(source, /const MAX_API_RETRIES = 2/);
   assert.match(source, /function throttledApiJson/);

@@ -42,7 +42,7 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 現在のバージョン:
 
 ```text
-2026-06-05.5
+2026-10-16.1
 ```
 
 ## できること
@@ -63,12 +63,16 @@ https://raw.githubusercontent.com/soichirow/edhrec-ja-images/main/userscript/edh
 
 一度取得した結果はブラウザにキャッシュされるので、同じカードは次回以降に表示されやすくなります。
 
+EDHRECでは画面内とその近くのカードから取得します。スクロールすると続きの画像が順番に切り替わります。APIへの通信間隔は最低250ミリ秒とし、対応ブラウザでは同じサイトの複数タブでも間隔を共有します。
+
+Scryfallからアクセス制限（429）が返った場合は指定時間だけ待機し、同じページで2回発生したら追加のAPI通信を止めます。時間を置いてからページを再読み込みしてください。別サイト・別ブラウザ・ほかの拡張機能の通信までは合算できません。
+
 ## 使い方
 
 EDHREC、Scryfall Tagger、または Scryfall 検索結果のページを開くだけで動きます。
 
 差し替えたカード画像の下に、小さな操作バーが出ます。
-EDHREC では操作バーは価格行の下に入り、EDHREC 本来のカード名や synergy などの表示はその下に続きます。
+EDHREC の新UIでは、上部のメインカードと一覧のカードに対応し、操作バーを価格行の下に表示します。背景のカードアートは差し替えません。旧UIとScryfallの表示にも引き続き対応しています。
 
 ```text
 Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
@@ -86,7 +90,7 @@ Scryfall / 晴 / BM / SS / 東 / メ / コピー / ★
 - Chrome の Console に次の表示があるか確認する
 
 ```text
-[EDHREC JA Images] version 2026-06-05.5
+[EDHREC JA Images] version 2026-10-16.1
 ```
 
 一部のカードは、日本語版画像が Scryfall にないことがあります。その場合は英語画像のまま、または英語通常版になります。

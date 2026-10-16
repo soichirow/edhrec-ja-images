@@ -2,7 +2,7 @@
 // @name         EDHREC Japanese card image replacer
 // @name:ja      EDHREC 日本語カード画像差し替え
 // @namespace    https://github.com/soichirow/edhrec-ja-images
-// @version      2026-06-05.5
+// @version      2026-10-16.1
 // @description  Replace EDHREC card images with Japanese Scryfall images
 // @description:ja EDHREC のカード画像を Scryfall の日本語印刷版画像に差し替え、日本語名コピーとお気に入り管理を追加します
 // @author       soichirow
@@ -23,12 +23,13 @@
   "use strict";
 
   const CACHE_KEY = "edhrec-ja-image-cache-v2";
+  const RATE_KEY = "edhrec-ja-scryfall-last-request-v1";
   const FAVORITES_KEY = "edhrec-ja-image-favorites-v1";
   const STYLE_ID = "edhrec-ja-image-style";
-  const SCRIPT_VERSION = "2026-06-05.5";
+  const SCRIPT_VERSION = "2026-10-16.1";
   const SPREADSHEET_ROW_SEPARATOR = "\r\n";
   const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
-  const REQUEST_GAP = 110;
+  const REQUEST_GAP = 250;
   const RETRY_AFTER_FALLBACK = 10000;
   const FALLBACK_DELAY = 900;
   const MAX_PREFETCH_PER_SCAN = 80;
@@ -48,6 +49,16 @@
   let favoriteDock = null;
   let queue = Promise.resolve();
   let last = 0;
+  let rateLimitCount = 0;
+  let apiStopped = false;
+  let scanTimer = null;
+  let prefetchScheduled = false;
+  const watchedImages = new WeakSet();
+  const imageObserver = typeof IntersectionObserver === "function" ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) replaceOne(entry.target);
+    });
+  }, { rootMargin: "300px" }) : null;
 
   console.info("[EDHREC JA Images] version " + SCRIPT_VERSION);
 
@@ -55,7 +66,7 @@
     const host = String(location.hostname || "");
     const scryfallImageSelector = 'a.card-grid-item-card img, a[href^="/card/"] img, a[href^="https://scryfall.com/card/"] img, a[href^="https://tagger.scryfall.com/card/"] img, img[src*="cards.scryfall.io"], img[data-src*="cards.scryfall.io"]';
     const scryfallLinkSelector = 'a.card-grid-item-card, a[href^="/card/"], a[href^="https://scryfall.com/card/"], a[href^="https://tagger.scryfall.com/card/"]';
-    const edhrecImageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"]';
+    const edhrecImageSelector = 'a[href*="/cards/"] img, a[href*="/commanders/"] img, img[src*="scryfall"], img[data-src*="scryfall"], img[src*="card-images.edhrec.com/grid/"], img[data-edhrec-ja-source]';
     const edhrecLinkSelector = 'a[href*="/cards/"], a[href*="/commanders/"]';
     if (/(^|\.)scryfall\.com$/i.test(host)) {
       return {
@@ -129,12 +140,38 @@
     const link = img.closest ? img.closest(linkSelector) : null;
     const imageName = normalizeName(img.getAttribute("alt") || img.getAttribute("title"));
     const linkName = link ? nameOfLink(link) : "";
-    return site.name === "scryfall" ? linkName || imageName : imageName || linkName;
+    const gridName = isEdhrecGridImage(img) && img.parentElement ? text(img.parentElement.textContent) : "";
+    return site.name === "scryfall" ? linkName || imageName : normalizeName(gridName) || imageName || linkName;
+  }
+
+  function hasClassSuffix(node, suffix) {
+    return Boolean(node && node.classList && Array.from(node.classList).some(function (name) { return name.endsWith(suffix); }));
+  }
+
+  function isEdhrecGridImage(img) {
+    return /card-images\.edhrec\.com\/grid\//.test(img.src || "") ||
+      /card-images\.edhrec\.com\/grid\//.test(img.dataset.edhrecJaSource || "");
+  }
+
+  // Match the card's faces boundary, not a build-specific CSS-module hash.
+  function modernEdhrecCardContainer(node) {
+    if (site.name === "scryfall") return null;
+    while (node && node !== document.body) {
+      const faces = Array.from(node.children || []).find(function (child) { return hasClassSuffix(child, "_faces"); });
+      if (faces && faces.querySelector('img[src*="card-images.edhrec.com/grid/"],img[data-edhrec-ja-source*="card-images.edhrec.com/grid/"]')) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function isNearViewport(img) {
+    const rect = img.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.bottom >= -300 && rect.top <= window.innerHeight + 300;
   }
 
   function scryfallIdOfImage(img) {
     const src = img ? img.currentSrc || img.src || img.getAttribute("data-src") || "" : "";
-    const match = String(src).match(/cards\.scryfall\.io\/(?:small|normal|large|png)\/(?:front|back)\/[0-9a-f]\/[0-9a-f]\/([0-9a-f-]{36})/i);
+    const match = String(src).match(/(?:cards\.scryfall\.io\/(?:small|normal|large|png)|card-images\.edhrec\.com\/grid)\/(?:front|back)\/[0-9a-f]\/[0-9a-f]\/([0-9a-f-]{36})/i);
     return match ? match[1] : "";
   }
 
@@ -341,8 +378,6 @@
       return card && cardImage(card, faceIndex) ? hitFromCard(card, print.name, faceIndex) : null;
     }).then(function (hit) {
       return remember(key, hit);
-    }).catch(function () {
-      return remember(key, null);
     }).finally(function () {
       delete pending[key];
     });
@@ -398,6 +433,8 @@
     return fetch(url, { headers: API_HEADERS }).then(function (res) {
       if (res.status === 404) return null;
       if (res.status === 429) {
+        rateLimitCount += 1;
+        if (rateLimitCount >= 2) apiStopped = true;
         const error = new Error("Scryfall HTTP 429");
         error.status = 429;
         error.retryAfterMs = retryAfterMs(res);
@@ -434,6 +471,7 @@
   }
 
   function retryableApiError(error) {
+    if (apiStopped) return false;
     if (!error || !error.status) return true;
     return error.status === 429 || error.status >= 500;
   }
@@ -461,16 +499,37 @@
 
   function throttled(task) {
     const run = queue.catch(function () {}).then(function () {
-      const wait = Math.max(0, REQUEST_GAP - (Date.now() - last));
-      return new Promise(function (resolve) {
-        setTimeout(resolve, wait);
-      }).then(function () {
-        last = Date.now();
-        return task();
-      });
+      if (typeof navigator !== "undefined" && navigator.locks) {
+        return navigator.locks.request(RATE_KEY, function () { return rateLimitedTask(task, true); });
+      }
+      return rateLimitedTask(task, false);
     });
     queue = run.catch(function () {});
     return run;
+  }
+
+  async function rateLimitedTask(task, shared) {
+    if (apiStopped) {
+      const error = new Error("Scryfall requests paused; reload later to resume.");
+      error.status = 429;
+      throw error;
+    }
+    if (shared) {
+      try {
+        const sharedLast = Number(localStorage.getItem(RATE_KEY));
+        if (Number.isFinite(sharedLast)) last = Math.max(last, sharedLast);
+      } catch (error) {}
+    }
+    await delay(Math.max(0, REQUEST_GAP - (Date.now() - last)));
+    last = Date.now();
+    try {
+      return await task();
+    } finally {
+      // The lock spans the response so Retry-After also delays other tabs.
+      if (shared) {
+        try { localStorage.setItem(RATE_KEY, String(last)); } catch (error) {}
+      }
+    }
   }
 
   function preloadImage(src) {
@@ -494,6 +553,8 @@
     let imageCount = 0;
     Array.prototype.forEach.call(document.querySelectorAll(linkSelector), function (link) {
       if (count >= MAX_PREFETCH_PER_SCAN || link.dataset.edhrecJaPrefetch) return;
+      const img = link.querySelector("img");
+      if (!img || !isCardLikeImage(img) || !isNearViewport(img)) return;
       const name = nameOfLink(link);
       const print = printOfScryfallLink(link);
       if (!name) return;
@@ -503,6 +564,8 @@
         if (!hit || !hit.src || imageCount >= MAX_IMAGE_PRELOAD_PER_SCAN) return;
         imageCount += 1;
         preloadImage(hit.src);
+      }).catch(function () {
+        // A failed speculative lookup must not become an unhandled rejection.
       });
     });
   }
@@ -514,17 +577,39 @@
    * @param {HTMLImageElement} img 差し替え候補の画像。
    */
   function replaceOne(img) {
-    if (!img || img.dataset.edhrecJaState) return;
+    if (!img) return;
+    const state = img.dataset.edhrecJaState;
+    const current = img.currentSrc || img.src || "";
+    if (state) {
+      const unchanged = state === "replaced" ? current === img.dataset.edhrecJaResult : current === img.dataset.edhrecJaSource;
+      if (state === "pending" || unchanged) return;
+      delete img.dataset.edhrecJaState;
+      const container = modernEdhrecCardContainer(img);
+      if (container) container.querySelectorAll(".edhrec-ja-overlay").forEach(function (box) { box.remove(); });
+    }
+    if (site.name === "edhrec" && imageObserver && !isNearViewport(img)) {
+      if (!watchedImages.has(img)) {
+        watchedImages.add(img);
+        imageObserver.observe(img);
+      }
+      return;
+    }
     if (!isCardLikeImage(img)) return;
     const link = img.closest ? img.closest(linkSelector) : null;
     const src = img.currentSrc || img.src || img.getAttribute("data-src") || "";
-    if (!link && !/scryfall/i.test(src)) return;
+    if (!link && !/scryfall/i.test(src) && !isEdhrecGridImage(img)) return;
     const name = nameOfImage(img);
     const scryfallId = scryfallIdOfImage(img);
     const faceIndex = faceIndexOfImage(img);
     if (!name && !scryfallId) return;
     img.dataset.edhrecJaState = "pending";
+    img.dataset.edhrecJaSource = src;
     lookupForImage(img, link, name, scryfallId, faceIndex).then(function (hit) {
+      if (!img.isConnected || (img.currentSrc || img.src || "") !== src) {
+        delete img.dataset.edhrecJaState;
+        scheduleScan();
+        return;
+      }
       if (!hit) {
         img.dataset.edhrecJaState = "missing";
         return;
@@ -535,6 +620,7 @@
         return;
       }
       preloadImage(hit.src);
+      img.dataset.edhrecJaResult = hit.src;
       img.src = hit.src;
       img.removeAttribute("srcset");
       img.setAttribute("data-src", hit.src);
@@ -543,6 +629,8 @@
       img.title = englishName + " / " + hit.label;
       img.dataset.edhrecJaState = "replaced";
       showScryfallLink(img, englishName, hit);
+    }).catch(function () {
+      img.dataset.edhrecJaState = "error";
     });
   }
 
@@ -584,7 +672,7 @@
   }
 
   function showScryfallLink(img, englishName, hit) {
-    const host = img.closest && img.closest(linkSelector);
+    const host = modernEdhrecCardContainer(img) || (img.closest && img.closest(linkSelector));
     if (!host || !hit.scryfall) return;
     const scope = controlScope(host);
     ensureFavoriteDock();
@@ -749,6 +837,8 @@
    * @returns {Element} 操作バーのスコープになる要素。
    */
   function controlScope(host) {
+    const modern = modernEdhrecCardContainer(host);
+    if (modern) return modern;
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) return cardContainer;
     const scryfallContainer = scryfallCardGridItem(host);
@@ -864,6 +954,13 @@
    */
   function insertControlBox(host, img, box) {
     if (!host || !img || !box || host === img) return;
+    const modern = modernEdhrecCardContainer(img);
+    if (modern) {
+      const reference = Array.from(modern.children).find(function (node) { return hasClassSuffix(node, "_prices"); }) ||
+        Array.from(modern.children).find(function (node) { return hasClassSuffix(node, "_faces"); });
+      if (reference.nextElementSibling !== box) modern.insertBefore(box, reference.nextSibling);
+      return;
+    }
     const cardContainer = edhrecCardContainer(host);
     if (cardContainer) {
       const priceGroup = edhrecPriceGroupAfterImage(host, img, cardContainer);
@@ -1153,7 +1250,10 @@
   }
 
   function schedulePrefetch() {
+    if (site.name === "edhrec" || prefetchScheduled) return;
+    prefetchScheduled = true;
     const run = function () {
+      prefetchScheduled = false;
       prefetchLinks();
     };
     if (window.requestIdleCallback) {
@@ -1169,12 +1269,36 @@
     });
   }
 
-  function readCache() {
+  function trustedScryfallUrl(value, image) {
     try {
-      return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}") || {};
-    } catch (error) {
-      return {};
-    }
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password &&
+        url.hostname === (image ? "cards.scryfall.io" : "scryfall.com") &&
+        (!url.port || url.port === "443");
+    } catch (error) { return false; }
+  }
+
+  function validStoredCard(card) {
+    return card && typeof card === "object" && !Array.isArray(card) &&
+      typeof card.label === "string" && typeof card.english === "string" &&
+      trustedScryfallUrl(card.src, true) && trustedScryfallUrl(card.scryfall, false);
+  }
+
+  function readStoredObject(key) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || "{}");
+      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch (error) { return {}; }
+  }
+
+  function readCache() {
+    const stored = readStoredObject(CACHE_KEY);
+    const result = Object.create(null);
+    Object.keys(stored).forEach(function (key) {
+      const entry = stored[key];
+      if (entry && Number.isFinite(entry.time) && (entry.value === null || validStoredCard(entry.value))) result[key] = entry;
+    });
+    return result;
   }
 
   function writeCache() {
@@ -1184,11 +1308,12 @@
   }
 
   function readFavorites() {
-    try {
-      return JSON.parse(localStorage.getItem(FAVORITES_KEY) || "{}") || {};
-    } catch (error) {
-      return {};
-    }
+    const stored = readStoredObject(FAVORITES_KEY);
+    const result = Object.create(null);
+    Object.keys(stored).forEach(function (key) {
+      if (validStoredCard(stored[key])) result[key] = stored[key];
+    });
+    return result;
   }
 
   function writeFavorites() {
@@ -1260,8 +1385,19 @@
     document.head.appendChild(marker);
   }
 
+  function scheduleScan() {
+    if (scanTimer !== null) return;
+    scanTimer = setTimeout(function () {
+      scanTimer = null;
+      scan();
+    }, 300);
+  }
+
   scan();
-  new MutationObserver(function () {
-    setTimeout(scan, 300);
-  }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(function (mutations) {
+    if (mutations.some(function (mutation) {
+      const target = mutation.target;
+      return !(target.closest && target.closest(".edhrec-ja-overlay,.edhrec-ja-dock"));
+    })) scheduleScan();
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset"] });
 })();
