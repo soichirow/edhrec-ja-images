@@ -132,7 +132,11 @@ test("layout fixture works in a real browser", async (t) => {
   assert.equal(ready.backFace.alt, "昆虫の逸脱者");
   assert.equal(ready.backFace.label, "昆虫の逸脱者");
   assert.equal(ready.backFace.english, "Insectile Aberration");
-  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 20261016.1"));
+  assert.ok(consoleMessages.includes("[EDHREC JA Images] version 20261016.2"));
+
+  // EDHREC hydration can detach body children created by a userscript.
+  await cdp.evaluate(`document.querySelector(".edhrec-ja-dock").remove()`);
+  await poll(async () => await cdp.evaluate(`Boolean(document.querySelector(".edhrec-ja-dock-button"))`), 2500);
 
   const favoriteState = await cdp.evaluate(`(() => {
     document.querySelector(".card-shell .edhrec-ja-star-button").click();
